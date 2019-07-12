@@ -28,7 +28,7 @@ export class AzureMonitorConfigCtrl {
   constructor(private backendSrv: BackendSrv, private $q: IQService, private templateSrv: TemplateSrv) {
     this.hasRequiredGrafanaVersion = this.hasMinVersion();
     this.current.jsonData.cloudName = this.current.jsonData.cloudName || 'azuremonitor';
-    this.current.jsonData.azureLogAnalyticsSameAs = this.current.jsonData.azureLogAnalyticsSameAs || false;
+    this.current.jsonData.azureLogAnalyticsSameAs = this.current.jsonData.azureLogAnalyticsSameAs || true;
     this.current.secureJsonData = this.current.secureJsonData || {};
     this.current.secureJsonFields = this.current.secureJsonFields || {};
     this.subscriptions = [];
@@ -64,7 +64,6 @@ export class AzureMonitorConfigCtrl {
 
   async init() {
     this.azureMonitorDatasource = new AzureMonitorDatasource(this.current, this.backendSrv, this.templateSrv);
-    await this.getSubscriptions();
     await this.getSubscriptionsForLogsAnalytics();
 
     this.azureLogAnalyticsDatasource = new AzureLogAnalyticsDatasource(
@@ -97,15 +96,39 @@ export class AzureMonitorConfigCtrl {
     }
   }
 
-  async getSubscriptions() {
-    if (!this.current.secureJsonFields.clientSecret && !this.current.secureJsonData.clientSecret) {
+  async saveAndGetSubscriptions() {
+    if (!this.hasNecessaryCredentials()) {
       return;
     }
 
+    await this.backendSrv.put(`/api/datasources/${this.current.id}`, this.current).then(() => {
+      this.getSubscriptions();
+      this.current.version++;
+    });
+  }
+
+  hasNecessaryCredentials() {
+    if (!this.current.secureJsonFields.clientSecret && !this.current.secureJsonData.clientSecret) {
+      return false;
+    }
+
+    if (!this.current.jsonData.clientId || !this.current.jsonData.tenantId) {
+      return false;
+    }
+
+    return true;
+  }
+
+  async getSubscriptions() {
+    if (!this.hasNecessaryCredentials()) {
+      return [];
+    }
     this.subscriptions = (await this.azureMonitorDatasource.getSubscriptions()) || [];
     if (this.subscriptions && this.subscriptions.length > 0) {
       this.current.jsonData.subscriptionId = this.current.jsonData.subscriptionId || this.subscriptions[0].value;
     }
+
+    return this.subscriptions;
   }
 
   async getSubscriptionsForLogsAnalytics() {
