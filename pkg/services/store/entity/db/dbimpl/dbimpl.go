@@ -2,12 +2,12 @@ package dbimpl
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/dlmiddlecote/sqlstats"
 	"github.com/grafana/grafana/pkg/infra/db"
-	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/services/featuremgmt"
 	"github.com/grafana/grafana/pkg/services/sqlstore/session"
 	entitydb "github.com/grafana/grafana/pkg/services/store/entity/db"
@@ -26,7 +26,7 @@ func ProvideEntityDB(db db.DB, cfg *setting.Cfg, features featuremgmt.FeatureTog
 		db:       db,
 		cfg:      cfg,
 		features: features,
-		log:      log.New("entity-db"),
+		log:      slog.Default().With("logger", "entity-db"),
 	}, nil
 }
 
@@ -35,7 +35,7 @@ type EntityDB struct {
 	features featuremgmt.FeatureToggles
 	engine   *xorm.Engine
 	cfg      *setting.Cfg
-	log      log.Logger
+	log      *slog.Logger
 }
 
 func (db *EntityDB) Init() error {
