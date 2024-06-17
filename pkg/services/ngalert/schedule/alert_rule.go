@@ -35,6 +35,8 @@ type Rule interface {
 	Eval(eval *Evaluation) (bool, *Evaluation)
 	// Update sends a singal to change the definition of the rule.
 	Update(lastVersion RuleVersionAndPauseStatus) bool
+	// Status indicates the status of the evaluating rule.
+	Status() ngmodels.RuleStatus
 }
 
 type ruleFactoryFunc func(context.Context, *ngmodels.AlertRule) Rule
@@ -76,6 +78,7 @@ func newRuleFactory(
 		}
 		return newAlertRule(
 			ctx,
+			rule.GetKey(),
 			appURL,
 			disableGrafanaFolder,
 			maxAttempts,
@@ -106,6 +109,8 @@ type alertRule struct {
 	ctx      context.Context
 	stopFn   util.CancelCauseFunc
 
+	key ngmodels.AlertRuleKey
+
 	appURL               *url.URL
 	disableGrafanaFolder bool
 	maxAttempts          int64
@@ -127,6 +132,7 @@ type alertRule struct {
 
 func newAlertRule(
 	parent context.Context,
+	key ngmodels.AlertRuleKey,
 	appURL *url.URL,
 	disableGrafanaFolder bool,
 	maxAttempts int64,
@@ -147,6 +153,7 @@ func newAlertRule(
 		updateCh:             make(chan RuleVersionAndPauseStatus),
 		ctx:                  ctx,
 		stopFn:               stop,
+		key:                  key,
 		appURL:               appURL,
 		disableGrafanaFolder: disableGrafanaFolder,
 		maxAttempts:          maxAttempts,
@@ -161,6 +168,10 @@ func newAlertRule(
 		logger:               logger,
 		tracer:               tracer,
 	}
+}
+
+func (a *alertRule) Status() ngmodels.RuleStatus {
+	return a.stateManager.GetStatusForRuleUID(a.key.OrgID, a.key.UID)
 }
 
 // eval signals the rule evaluation routine to perform the evaluation of the rule. Does nothing if the loop is stopped.

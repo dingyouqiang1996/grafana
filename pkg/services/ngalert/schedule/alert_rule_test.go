@@ -261,7 +261,7 @@ func TestAlertRule(t *testing.T) {
 }
 
 func blankRuleForTests(ctx context.Context) *alertRule {
-	return newAlertRule(context.Background(), nil, false, 0, nil, nil, nil, nil, nil, nil, log.NewNopLogger(), nil, nil, nil)
+	return newAlertRule(context.Background(), models.AlertRuleKey{}, nil, false, 0, nil, nil, nil, nil, nil, nil, log.NewNopLogger(), nil, nil, nil)
 }
 
 func TestRuleRoutine(t *testing.T) {
@@ -361,6 +361,17 @@ func TestRuleRoutine(t *testing.T) {
 				require.Equal(t, rule.UID, cmd.RuleUID)
 				require.Equal(t, evalState.String(), string(cmd.CurrentState))
 				require.Equal(t, s.Labels, data.Labels(cmd.Labels))
+			})
+
+			t.Run("status should accurately reflect latest evaluation", func(t *testing.T) {
+				states := sch.stateManager.GetStatesForRuleUID(rule.OrgID, rule.UID)
+				require.NotEmpty(t, states)
+
+				status := ruleInfo.Status()
+				require.Equal(t, "ok", status.Health)
+				require.Nil(t, status.LastError)
+				require.Equal(t, states[0].LastEvaluationTime, status.EvaluatedAt)
+				require.Equal(t, states[0].EvaluationDuration, status.EvaluatedDuration)
 			})
 
 			t.Run("it reports metrics", func(t *testing.T) {
@@ -693,6 +704,15 @@ func TestRuleRoutine(t *testing.T) {
 			require.Truef(t, ok, fmt.Sprintf("expected argument of function was supposed to be 'definitions.PostableAlerts' but got %T", sender.Calls()[0].Arguments[2]))
 			assert.Len(t, args.PostableAlerts, 1)
 			assert.Equal(t, state.ErrorAlertName, args.PostableAlerts[0].Labels[prometheusModel.AlertNameLabel])
+		})
+
+		t.Run("status should reflect unhealthy rule", func(t *testing.T) {
+			status := ruleInfo.Status()
+			require.Equal(t, "error", status.Health)
+			require.NotNil(t, status.LastError, "expected status to carry the latest evaluation error")
+			require.Contains(t, status.LastError.Error(), "cannot reference itself")
+			require.Equal(t, int64(0), status.EvaluatedAt.UTC().Unix())
+			require.Equal(t, time.Duration(0), status.EvaluatedDuration)
 		})
 	})
 
