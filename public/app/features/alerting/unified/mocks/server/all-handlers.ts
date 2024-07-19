@@ -9,6 +9,7 @@ import folderHandlers from 'app/features/alerting/unified/mocks/server/handlers/
 import grafanaRulerHandlers from 'app/features/alerting/unified/mocks/server/handlers/grafanaRuler';
 import mimirRulerHandlers from 'app/features/alerting/unified/mocks/server/handlers/mimirRuler';
 import pluginsHandlers from 'app/features/alerting/unified/mocks/server/handlers/plugins';
+import prometheusHandlers from 'app/features/alerting/unified/mocks/server/handlers/prometheus';
 import silenceHandlers from 'app/features/alerting/unified/mocks/server/handlers/silences';
 
 /**
@@ -22,6 +23,7 @@ const allHandlers = [
   ...evalHandlers,
   ...folderHandlers,
   ...pluginsHandlers,
+  ...prometheusHandlers,
   ...silenceHandlers,
 ];
 

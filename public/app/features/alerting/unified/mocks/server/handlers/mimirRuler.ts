@@ -23,6 +23,26 @@ export const updateRulerRuleNamespaceHandler = (options?: HandlerOptions) => {
   });
 };
 
+const rulerRulesHandler = () => {
+  return http.get<{ datasourceUid: string }>(`/api/ruler/:datasourceUid/api/v1/rules`, () => {
+    return HttpResponse.json({});
+  });
+};
+
+const rulerRulesTestHandler = () => {
+  /**
+   * This particular response is needed to allow tests to handle the case of testing
+   * whether a ruler supports rules (see `isCortexErrorResponse` method)
+   */
+  const missingGroupResponse = {
+    message: 'get rule group user="", namespace="", name="": group does not exist\n',
+    traceId: '',
+  };
+  return http.get<{ datasourceUid: string }>('/api/ruler/:datasourceUid/api/v1/rules/test/test', () => {
+    return HttpResponse.json(missingGroupResponse, { status: 404 });
+  });
+};
+
 export const rulerRuleGroupHandler = (options?: HandlerOptions) => {
   return http.get<{ namespaceName: string; groupName: string }>(
     `/api/ruler/:dataSourceUID/api/v1/rules/:namespaceName/:groupName`,
@@ -65,6 +85,12 @@ export const deleteRulerRuleGroupHandler = () => {
   );
 };
 
-const handlers = [updateRulerRuleNamespaceHandler(), rulerRuleGroupHandler(), deleteRulerRuleGroupHandler()];
+const handlers = [
+  rulerRulesHandler(),
+  rulerRulesTestHandler(),
+  updateRulerRuleNamespaceHandler(),
+  rulerRuleGroupHandler(),
+  deleteRulerRuleGroupHandler(),
+];
 
 export default handlers;

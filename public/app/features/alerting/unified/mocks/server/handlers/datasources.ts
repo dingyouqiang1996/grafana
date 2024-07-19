@@ -8,8 +8,12 @@ export const MOCK_DATASOURCE_EXTERNAL_VANILLA_ALERTMANAGER_UID = 'vanilla-alertm
 export const MOCK_DATASOURCE_PROVISIONED_MIMIR_ALERTMANAGER_UID = 'provisioned-alertmanager';
 
 // TODO: Add more accurate endpoint responses as tests require
-export const datasourceBuildInfoHandler = () =>
+const datasourceBuildInfoHandler = () =>
   http.get('/api/datasources/proxy/uid/:datasourceUid/api/v1/status/buildinfo', () => HttpResponse.json({}));
 
-const datasourcesHandlers = [datasourceBuildInfoHandler()];
+// TODO: Add more accurate endpoint responses as tests require
+const resourcesLabelsHandler = () =>
+  http.get('/api/datasources/uid/:datasourceUid/resources/labels', () => HttpResponse.json({ status: 'success' }));
+
+const datasourcesHandlers = [datasourceBuildInfoHandler(), resourcesLabelsHandler()];
 export default datasourcesHandlers;

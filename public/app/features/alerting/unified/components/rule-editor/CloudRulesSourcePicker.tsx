@@ -14,9 +14,10 @@ interface Props {
   value: string | null;
   onBlur?: () => void;
   name?: string;
+  id?: string;
 }
 
-export function CloudRulesSourcePicker({ value, disabled, ...props }: Props): JSX.Element {
+export function CloudRulesSourcePicker({ value, disabled, id, ...props }: Props): JSX.Element {
   const rulesSourcesWithRuler = useRulesSourcesWithRuler();
 
   const { loading = true } = useAsync(() => dispatch(fetchAllPromBuildInfoAction()), [dispatch]);
@@ -35,6 +36,7 @@ export function CloudRulesSourcePicker({ value, disabled, ...props }: Props): JS
       alerting
       filter={dataSourceFilter}
       current={value}
+      inputId={id}
       {...props}
     />
   );
