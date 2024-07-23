@@ -13,7 +13,7 @@ import { KeyValue, LoadingState, TableData, TimeSeries } from './data';
 import { DataFrame, DataFrameDTO } from './dataFrame';
 import { PanelData } from './panel';
 import { GrafanaPlugin, PluginMeta } from './plugin';
-import { DataQuery } from './query';
+import { DataQuery, UnknownQuery } from './query';
 import { Scope } from './scopes';
 import { AdHocVariableFilter } from './templateVars';
 import { RawTimeRange, TimeRange } from './time';
@@ -373,6 +373,15 @@ abstract class DataSourceApi<
    * @alpha -- experimental
    */
   getDefaultQuery?(app: CoreApp): Partial<TQuery>;
+
+  /**
+   * Optionally, you can implement migrateQuery to handle query migrations when the query structure changes.
+   * Currently behind the feature flag: queryMigrations.
+   * This function is run before executing a query, the results are not persisted.
+   * QueryEditors need to manually call this function before rendering the editor.
+   * @alpha -- experimental
+   */
+  migrateQuery?(query: UnknownQuery): TQuery | Promise<TQuery>;
 }
 
 /**
