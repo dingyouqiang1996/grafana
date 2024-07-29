@@ -26,7 +26,10 @@ import {
   displayNameOverrideProcessor,
   FieldNamePickerConfigSettings,
   booleanOverrideProcessor,
+  Action,
+  OneClickMode,
 } from '@grafana/data';
+import { SelectFieldConfigSettings, actionsOverrideProcessor } from '@grafana/data/src/field/overrides/processors';
 import { FieldConfig } from '@grafana/schema';
 import { RadioButtonGroup, TimeZonePicker, Switch } from '@grafana/ui';
 import { FieldNamePicker } from '@grafana/ui/src/components/MatchersUI/FieldNamePicker';
@@ -36,7 +39,7 @@ import { ValueMappingsEditor } from 'app/features/dimensions/editors/ValueMappin
 import { DashboardPicker, DashboardPickerOptions } from './DashboardPicker';
 import { ColorValueEditor, ColorValueEditorSettings } from './color';
 import { FieldColorEditor } from './fieldColor';
-import { DataLinksValueEditor } from './links';
+import { ActionsValueEditor, DataLinksValueEditor } from './links';
 import { MultiSelectValueEditor } from './multiSelect';
 import { NumberValueEditor } from './number';
 import { SelectValueEditor } from './select';
@@ -143,6 +146,13 @@ export const getAllOptionEditors = () => {
     editor: DataLinksValueEditor,
   };
 
+  const actions: StandardEditorsRegistryItem<Action[]> = {
+    id: 'actions',
+    name: 'Actions',
+    description: 'Allows defining actions',
+    editor: ActionsValueEditor,
+  };
+
   const statsPicker: StandardEditorsRegistryItem<string[], StatsPickerConfigSettings> = {
     id: 'stats-picker',
     name: 'Stats Picker',
@@ -194,6 +204,7 @@ export const getAllOptionEditors = () => {
     select,
     unit,
     links,
+    actions,
     statsPicker,
     strings,
     timeZone,
@@ -336,6 +347,27 @@ export const getAllStandardFieldConfigs = () => {
     category,
   };
 
+  const oneClickMode: FieldConfigPropertyItem<FieldConfig, OneClickMode, SelectFieldConfigSettings<OneClickMode>> = {
+    id: 'oneClickMode',
+    path: 'oneClickMode',
+    name: 'One-click',
+    editor: standardEditorsRegistry.get('radio').editor,
+    override: standardEditorsRegistry.get('radio').editor,
+    process: (value) => value,
+    settings: {
+      options: [
+        { value: OneClickMode.Off, label: 'Off' },
+        { value: OneClickMode.Link, label: 'Link' },
+        { value: OneClickMode.Action, label: 'Action' },
+      ],
+    },
+    defaultValue: OneClickMode.Off,
+    shouldApply: () => true,
+    category: ['Data links and actions'],
+    description: 'When enabled, a single click opens first link or action',
+    getItemsCount: (value) => (value ? value.length : 0),
+  };
+
   const links: FieldConfigPropertyItem<FieldConfig, DataLink[], StringFieldConfigSettings> = {
     id: 'links',
     path: 'links',
@@ -347,7 +379,22 @@ export const getAllStandardFieldConfigs = () => {
       placeholder: '-',
     },
     shouldApply: () => true,
-    category: ['Data links'],
+    category: ['Data links and actions'],
+    getItemsCount: (value) => (value ? value.length : 0),
+  };
+
+  const actions: FieldConfigPropertyItem<FieldConfig, Action[], StringFieldConfigSettings> = {
+    id: 'actions',
+    path: 'actions',
+    name: 'Actions',
+    editor: standardEditorsRegistry.get('actions').editor,
+    override: standardEditorsRegistry.get('actions').editor,
+    process: actionsOverrideProcessor,
+    settings: {
+      placeholder: '-',
+    },
+    shouldApply: () => true,
+    category: ['Data links and actions'],
     getItemsCount: (value) => (value ? value.length : 0),
   };
 
@@ -415,5 +462,20 @@ export const getAllStandardFieldConfigs = () => {
     category,
   };
 
-  return [unit, min, max, fieldMinMax, decimals, displayName, color, noValue, links, mappings, thresholds, filterable];
+  return [
+    unit,
+    min,
+    max,
+    fieldMinMax,
+    decimals,
+    displayName,
+    color,
+    noValue,
+    oneClickMode,
+    links,
+    actions,
+    mappings,
+    thresholds,
+    filterable,
+  ];
 };
