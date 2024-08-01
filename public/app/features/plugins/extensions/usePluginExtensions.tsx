@@ -1,7 +1,11 @@
+import { useCallback } from 'react';
 import { useObservable } from 'react-use';
 
 import { PluginExtension } from '@grafana/data';
 import { GetPluginExtensionsOptions, UsePluginExtensionsResult } from '@grafana/runtime';
+import windowSplitSlice from 'app/core/reducers/windowSplit';
+
+import { useDispatch, useSelector } from '../../../types';
 
 import { getPluginExtensions } from './getPluginExtensions';
 import { ReactivePluginExtensionsRegistry } from './reactivePluginExtensionRegistry';
@@ -18,6 +22,35 @@ export function createUsePluginExtensions(extensionsRegistry: ReactivePluginExte
 
   return function usePluginExtensions(options: GetPluginExtensionsOptions): UsePluginExtensionsResult<PluginExtension> {
     const registry = useObservable(observableRegistry);
+    const secondAppId = useSelector((state) => state.windowSplit.secondAppId);
+    let mainApp = window.location.pathname.match(/\/a\/([^/]+)/)?.[1];
+    if (!mainApp && window.location.pathname.match(/\/explore/)) {
+      mainApp = 'explore';
+    }
+
+    if (!mainApp && window.location.pathname.match(/\/d\//)) {
+      mainApp = 'dashboards';
+    }
+    const openedApps = [];
+    if (mainApp) {
+      openedApps.push(mainApp);
+    }
+
+    if (secondAppId) {
+      openedApps.push(secondAppId);
+    }
+
+    const dispatch = useDispatch();
+    const openSplitApp = useCallback(
+      (appId: string, context: unknown) =>
+        dispatch(windowSplitSlice.actions.openSplitApp({ secondAppId: appId, context })),
+      [dispatch]
+    );
+
+    const closeSplitApp = useCallback(
+      (appId: string) => dispatch(windowSplitSlice.actions.closeSplitApp({ secondAppId: appId })),
+      [dispatch]
+    );
 
     if (!registry) {
       return { extensions: [], isLoading: false };
@@ -39,7 +72,7 @@ export function createUsePluginExtensions(extensionsRegistry: ReactivePluginExte
       };
     }
 
-    const { extensions } = getPluginExtensions({ ...options, registry });
+    const { extensions } = getPluginExtensions({ ...options, registry, openedApps, openSplitApp, closeSplitApp });
 
     cache.extensions[key] = {
       context: options.context,

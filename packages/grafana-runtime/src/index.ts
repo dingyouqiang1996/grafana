@@ -54,3 +54,5 @@ export { setReturnToPreviousHook, useReturnToPrevious } from './utils/returnToPr
 export { setChromeHeaderHeightHook, useChromeHeaderHeight } from './utils/chromeHeaderHeight';
 export { type EmbeddedDashboardProps, EmbeddedDashboard, setEmbeddedDashboard } from './components/EmbeddedDashboard';
 export { hasPermission, hasPermissionInMetadata, hasAllPermissions, hasAnyPermission } from './utils/rbac';
+// Exporting react-beautiful-dnd here so that grafana and plugins can have shared DragDropContext
+export * from 'react-beautiful-dnd';

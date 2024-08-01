@@ -34,11 +34,16 @@ type GetExtensions = ({
   extensionPointId,
   limitPerPlugin,
   registry,
+  openedApps,
+  openSplitApp,
 }: {
   context?: object | Record<string | symbol, unknown>;
   extensionPointId: string;
   limitPerPlugin?: number;
   registry: PluginExtensionRegistry;
+  openedApps?: string[];
+  openSplitApp: (appId: string, context: unknown) => void;
+  closeSplitApp: (appId: string) => void;
 }) => { extensions: PluginExtension[] };
 
 export function createPluginExtensionsGetter(extensionRegistry: ReactivePluginExtensionsRegistry): GetPluginExtensions {
@@ -50,11 +55,27 @@ export function createPluginExtensionsGetter(extensionRegistry: ReactivePluginEx
     registry = r;
   });
 
-  return (options) => getPluginExtensions({ ...options, registry });
+  return (options) =>
+    // TODO: figure out how to pass the split controls here
+    getPluginExtensions({
+      ...options,
+      registry,
+      openedApps: undefined,
+      closeSplitApp: () => {},
+      openSplitApp: () => {},
+    });
 }
 
 // Returns with a list of plugin extensions for the given extension point
-export const getPluginExtensions: GetExtensions = ({ context, extensionPointId, limitPerPlugin, registry }) => {
+export const getPluginExtensions: GetExtensions = ({
+  context,
+  extensionPointId,
+  limitPerPlugin,
+  registry,
+  openSplitApp,
+  closeSplitApp,
+  openedApps,
+}) => {
   const frozenContext = context ? getReadOnlyProxy(context) : {};
   const registryItems = registry.extensions[extensionPointId] ?? [];
   // We don't return the extensions separated by type, because in that case it would be much harder to define a sort-order for them.
@@ -77,8 +98,9 @@ export const getPluginExtensions: GetExtensions = ({ context, extensionPointId, 
 
       // LINK
       if (isPluginExtensionLinkConfig(extensionConfig)) {
-        // Run the configure() function with the current context, and apply the ovverides
-        const overrides = getLinkExtensionOverrides(pluginId, extensionConfig, frozenContext);
+        // Run the configure() function with the current context, and apply the overrides
+        const isAppOpened = !!openedApps?.includes(pluginId);
+        const overrides = getLinkExtensionOverrides(pluginId, isAppOpened, extensionConfig, frozenContext);
 
         // configure() returned an `undefined` -> hide the extension
         if (extensionConfig.configure && overrides === undefined) {
@@ -86,11 +108,24 @@ export const getPluginExtensions: GetExtensions = ({ context, extensionPointId, 
         }
 
         const path = overrides?.path || extensionConfig.path;
+        const openApp = (context?: unknown) => openSplitApp(pluginId, context);
+        const closeApp = () => {
+          // Don't allow closing other apps from the app extension only it's own and only if it's the second app. The
+          // second app requirement is probably temporary as we don't have a way to "promote" the secondary app to
+          // main app.
+          if (openedApps && openedApps.length === 2 && openedApps[1] === pluginId) {
+            closeSplitApp(pluginId);
+          }
+        };
+
         const extension: PluginExtensionLink = {
           id: generateExtensionId(pluginId, extensionConfig),
           type: PluginExtensionTypes.link,
           pluginId: pluginId,
-          onClick: getLinkExtensionOnClick(pluginId, extensionConfig, frozenContext),
+          onClick: getLinkExtensionOnClick(
+            { pluginId, isAppOpened, openApp, closeApp, config: extensionConfig },
+            frozenContext
+          ),
 
           // Configurable properties
           icon: overrides?.icon || extensionConfig.icon,
@@ -131,9 +166,14 @@ export const getPluginExtensions: GetExtensions = ({ context, extensionPointId, 
   return { extensions };
 };
 
-function getLinkExtensionOverrides(pluginId: string, config: PluginExtensionLinkConfig, context?: object) {
+function getLinkExtensionOverrides(
+  pluginId: string,
+  isAppOpened: boolean,
+  config: PluginExtensionLinkConfig,
+  context?: object
+) {
   try {
-    const overrides = config.configure?.(context);
+    const overrides = config.configure?.(isAppOpened, context);
 
     // Hiding the extension
     if (overrides === undefined) {
@@ -184,26 +224,40 @@ function getLinkExtensionOverrides(pluginId: string, config: PluginExtensionLink
 }
 
 function getLinkExtensionOnClick(
-  pluginId: string,
-  config: PluginExtensionLinkConfig,
+  options: {
+    pluginId: string;
+    config: PluginExtensionLinkConfig;
+    isAppOpened: boolean;
+    openApp: () => void;
+    closeApp: () => void;
+  },
   context?: object
-): ((event?: React.MouseEvent) => void) | undefined {
-  const { onClick } = config;
+): ((event?: React.MouseEvent, context?: object) => void) | undefined {
+  const { onClick } = options.config;
 
   if (!onClick) {
     return;
   }
 
-  return function onClickExtensionLink(event?: React.MouseEvent) {
+  return function onClickExtensionLink(event?: React.MouseEvent, onClickContext?: object) {
     try {
       reportInteraction('ui_extension_link_clicked', {
-        pluginId: pluginId,
-        extensionPointId: config.extensionPointId,
-        title: config.title,
-        category: config.category,
+        pluginId: options.pluginId,
+        extensionPointId: options.config.extensionPointId,
+        title: options.config.title,
+        category: options.config.category,
       });
 
-      const result = onClick(event, getEventHelpers(pluginId, context));
+      const result = onClick(
+        event,
+        getEventHelpers(
+          options.pluginId,
+          options.isAppOpened,
+          options.openApp,
+          options.closeApp,
+          onClickContext || context
+        )
+      );
 
       if (isPromise(result)) {
         result.catch((e) => {

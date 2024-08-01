@@ -3,9 +3,9 @@ import { memo, ReactNode } from 'react';
 import { connect, ConnectedProps } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 
-import { textUtil } from '@grafana/data';
+import { PluginExtensionLink, textUtil } from '@grafana/data';
 import { selectors as e2eSelectors } from '@grafana/e2e-selectors/src';
-import { locationService } from '@grafana/runtime';
+import { locationService, UsePluginExtensionsResult, usePluginLinkExtensions } from '@grafana/runtime';
 import {
   ButtonGroup,
   ModalsController,
@@ -281,7 +281,7 @@ export const DashNav = memo<Props>((props) => {
     );
   };
 
-  const renderRightActions = () => {
+  const renderRightActions = (extensions: UsePluginExtensionsResult<PluginExtensionLink>) => {
     const { dashboard, isFullscreen, kioskMode, hideTimePicker } = props;
     const { canSave, canEdit, showSettings, canShare } = dashboard.meta;
     const { snapshot } = dashboard;
@@ -306,6 +306,19 @@ export const DashNav = memo<Props>((props) => {
         />
       );
     }
+
+    extensions.extensions.forEach((extension) => {
+      buttons.push(
+        <ToolbarButton
+          tooltip={extension.title}
+          icon={extension.icon}
+          onClick={() => {
+            extension.onClick?.();
+          }}
+          key={`button-extension-${extension.id}`}
+        />
+      );
+    });
 
     if (canSave && !isFullscreen) {
       buttons.push(
@@ -370,12 +383,29 @@ export const DashNav = memo<Props>((props) => {
         <>
           {renderLeftActions()}
           <NavToolbarSeparator leftActionsSeparator />
-          <ToolbarButtonRow alignment="right">{renderRightActions()}</ToolbarButtonRow>
+          <ExtensionsProvider>
+            {(extensions) => {
+              return <ToolbarButtonRow alignment="right">{renderRightActions(extensions)}</ToolbarButtonRow>;
+            }}
+          </ExtensionsProvider>
         </>
       }
     />
   );
 });
+
+type ExtensionsProviderProps = {
+  children: (extensions: UsePluginExtensionsResult<PluginExtensionLink>) => ReactNode;
+};
+function ExtensionsProvider(props: ExtensionsProviderProps) {
+  const extensions = usePluginLinkExtensions({
+    extensionPointId: 'grafana/dashboard/toolbar',
+    context: {},
+    limitPerPlugin: 3,
+  });
+
+  return props.children(extensions);
+}
 
 DashNav.displayName = 'DashNav';
 

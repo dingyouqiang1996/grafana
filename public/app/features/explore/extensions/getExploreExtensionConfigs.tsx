@@ -44,7 +44,7 @@ export function getExploreExtensionConfigs(): PluginExtensionLinkConfig[] {
         description: 'Create a correlation from this query',
         extensionPointId: PluginExtensionPoints.ExploreToolbarAction,
         icon: 'link',
-        configure: (context) => {
+        configure: (isAppOpened, context) => {
           return context?.shouldShowAddCorrelation ? {} : undefined;
         },
         onClick: (_, { context }) => {

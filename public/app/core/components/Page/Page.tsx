@@ -115,6 +115,7 @@ const getStyles = (theme: GrafanaTheme2) => {
             flex: '1 1 0',
             flexDirection: 'column',
             minHeight: 0,
+            width: '100%',
           }
     ),
     pageContent: css({

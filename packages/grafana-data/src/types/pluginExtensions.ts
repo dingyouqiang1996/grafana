@@ -27,7 +27,7 @@ type PluginExtensionBase = {
 export type PluginExtensionLink = PluginExtensionBase & {
   type: PluginExtensionTypes.link;
   path?: string;
-  onClick?: (event?: React.MouseEvent) => void;
+  onClick?: (event?: React.MouseEvent, context?: object) => void;
   icon?: IconName;
   category?: string;
 };
@@ -61,7 +61,10 @@ export type PluginExtensionLinkConfig<Context extends object = object> = {
   extensionPointId: string;
 
   // (Optional) A function that can be used to configure the extension dynamically based on the extension point's context
-  configure?: (context?: Readonly<Context>) =>
+  configure?: (
+    isAppOpened: boolean,
+    context?: Readonly<Context>
+  ) =>
     | Partial<{
         title: string;
         description: string;
@@ -112,6 +115,10 @@ export type PluginExtensionEventHelpers<Context extends object = object> = {
   context?: Readonly<Context>;
   // Opens a modal dialog and renders the provided React component inside it
   openModal: (options: PluginExtensionOpenModalOptions) => void;
+
+  isAppOpened: boolean;
+  openSplitApp: (context?: unknown) => void;
+  closeSplitApp: () => void;
 };
 
 // Extension Points & Contexts

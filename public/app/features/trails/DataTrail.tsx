@@ -1,7 +1,21 @@
 import { css } from '@emotion/css';
 
-import { AdHocVariableFilter, GrafanaTheme2, PageLayoutType, VariableHide, urlUtil } from '@grafana/data';
-import { locationService, useChromeHeaderHeight } from '@grafana/runtime';
+import {
+  AdHocVariableFilter,
+  GrafanaTheme2,
+  PageLayoutType,
+  VariableHide,
+  urlUtil,
+  PluginExtensionLink,
+} from '@grafana/data';
+import {
+  locationService,
+  useChromeHeaderHeight,
+  getAppEvents,
+  TimeRangeUpdatedEvent,
+  UsePluginExtensionsResult,
+  usePluginLinkExtensions,
+} from '@grafana/runtime';
 import {
   AdHocFiltersVariable,
   DataSourceVariable,
@@ -23,7 +37,7 @@ import {
   VariableDependencyConfig,
   VariableValueSelectors,
 } from '@grafana/scenes';
-import { useStyles2 } from '@grafana/ui';
+import { ToolbarButton, useStyles2 } from '@grafana/ui';
 import { Page } from 'app/core/components/Page/Page';
 
 import { DataTrailSettings } from './DataTrailSettings';
@@ -98,6 +112,12 @@ export class DataTrail extends SceneObjectBase<DataTrailState> {
     // Save the current trail as a recent if the browser closes or reloads
     const saveRecentTrail = () => getTrailStore().setRecentTrail(this);
     window.addEventListener('unload', saveRecentTrail);
+
+    if (this.state.$timeRange) {
+      this.state.$timeRange.subscribeToState((state) => {
+        getAppEvents().publish(new TimeRangeUpdatedEvent(state.value));
+      });
+    }
 
     return () => {
       if (!this.state.embedded) {
@@ -221,6 +241,29 @@ export class DataTrail extends SceneObjectBase<DataTrailState> {
         <div className={styles.container}>
           {showHeaderForFirstTimeUsers && <MetricsHeader />}
           <history.Component model={history} />
+          <ExtensionsProvider>
+            {(extensions) => {
+              const labelVar = model.useState().$variables?.useState().variables[1].useState();
+              // @ts-ignore seems like there isn't typing for the state
+              const filters =
+                labelVar && labelVar.filters.length > 0
+                  ? {
+                      // @ts-ignore
+                      key: labelVar.filters[0].key,
+                      // @ts-ignore
+                      value: labelVar.filters[0].value,
+                    }
+                  : undefined;
+
+              return extensions.extensions.map((e) => {
+                return (
+                  <ToolbarButton key={e.id} onClick={(event) => e.onClick?.(event, filters)} icon={e.icon}>
+                    {e.title}
+                  </ToolbarButton>
+                );
+              });
+            }}
+          </ExtensionsProvider>
           {controls && (
             <div className={styles.controls}>
               {controls.map((control) => (
@@ -234,6 +277,19 @@ export class DataTrail extends SceneObjectBase<DataTrailState> {
       </Page>
     );
   };
+}
+
+type ExtensionsProviderProps = {
+  children: (extensions: UsePluginExtensionsResult<PluginExtensionLink>) => ReactNode;
+};
+function ExtensionsProvider(props: ExtensionsProviderProps) {
+  const extensions = usePluginLinkExtensions({
+    extensionPointId: 'grafana/data-trails/toolbar',
+    context: {},
+    limitPerPlugin: 3,
+  });
+
+  return props.children(extensions);
 }
 
 export function getTopSceneFor(metric?: string) {

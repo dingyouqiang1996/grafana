@@ -24,6 +24,8 @@ import { appEvents, contextSrv } from 'app/core/core';
 import { getNotFoundNav, getWarningNav, getExceptionNav } from 'app/core/navigation/errorModels';
 import { getMessageFromError } from 'app/core/utils/errors';
 
+import { getInitialAppContext } from '../../../core/reducers/windowSplit';
+import { getState } from '../../../store/store';
 import { getPluginSettings } from '../pluginSettings';
 import { importAppPlugin } from '../plugin_loader';
 import { buildPluginSectionNav, pluginsLogger } from '../utils';
@@ -34,7 +36,7 @@ interface Props {
   // The ID of the plugin we would like to load and display
   pluginId: string;
   // The root navModelItem for the plugin (root = lives directly under 'home')
-  pluginNavSection: NavModelItem;
+  pluginNavSection?: NavModelItem;
 }
 
 interface State {
@@ -53,7 +55,7 @@ export function AppRootPage({ pluginId, pluginNavSection }: Props) {
   const [state, dispatch] = useReducer(stateSlice.reducer, initialState);
   const currentUrl = config.appSubUrl + location.pathname + location.search;
   const { plugin, loading, loadingError, pluginNav } = state;
-  const navModel = buildPluginSectionNav(pluginNavSection, pluginNav, currentUrl);
+  const navModel = pluginNavSection ? buildPluginSectionNav(pluginNavSection, currentUrl) : undefined;
   const queryParams = useMemo(() => locationSearchToObject(location.search), [location.search]);
   const context = useMemo(() => buildPluginPageContext(navModel), [navModel]);
   const grafanaContext = useGrafana();
@@ -86,8 +88,10 @@ export function AppRootPage({ pluginId, pluginNavSection }: Props) {
     );
   }
 
+  const initialContext = getInitialAppContext(getState());
+
   const pluginRoot = plugin.root && (
-    <PluginContextProvider meta={plugin.meta}>
+    <PluginContextProvider meta={plugin.meta} initialContext={initialContext}>
       <plugin.root
         meta={plugin.meta}
         basename={match.url}
