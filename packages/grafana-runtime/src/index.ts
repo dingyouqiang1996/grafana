@@ -53,4 +53,4 @@ export { usePluginInteractionReporter } from './analytics/plugins/usePluginInter
 export { setReturnToPreviousHook, useReturnToPrevious } from './utils/returnToPrevious';
 export { setChromeHeaderHeightHook, useChromeHeaderHeight } from './utils/chromeHeaderHeight';
 export { type EmbeddedDashboardProps, EmbeddedDashboard, setEmbeddedDashboard } from './components/EmbeddedDashboard';
-export { hasPermission, hasPermissionInMetadata, hasAllPermissions, hasAnyPermission } from './utils/rbac';
+export { type Authorizer, DefaultAuthorizer, OptimisticAuthorizer } from './accesscontrol/authorize';

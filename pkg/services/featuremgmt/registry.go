@@ -1368,6 +1368,14 @@ var (
 			Owner:       grafanaPartnerPluginsSquad,
 			Expression:  "true", // Enabled by default for now
 		},
+		{
+			Name:         "disableFrontendPermissionCache",
+			Description:  "Disables the standard frontend in-memory caching of permissions.",
+			Stage:        FeatureStageExperimental,
+			Owner:        identityAccessTeam,
+			FrontendOnly: true,
+			HideFromDocs: true,
+		},
 	}
 )
 
