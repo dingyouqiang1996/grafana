@@ -730,4 +730,8 @@ const (
 	// FlagPrometheusAzureOverrideAudience
 	// Deprecated. Allow override default AAD audience for Azure Prometheus endpoint. Enabled by default. This feature should no longer be used and will be removed in the future.
 	FlagPrometheusAzureOverrideAudience = "prometheusAzureOverrideAudience"
+
+	// FlagNewNewBrowseDashboards
+	// Experimental new browse dashboards, using window-scrolling virtualization
+	FlagNewNewBrowseDashboards = "newNewBrowseDashboards"
 )

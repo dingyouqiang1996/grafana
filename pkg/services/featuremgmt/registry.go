@@ -1372,6 +1372,15 @@ var (
 			Owner:       grafanaPartnerPluginsSquad,
 			Expression:  "true", // Enabled by default for now
 		},
+		{
+			Name:              "newNewBrowseDashboards",
+			Description:       "Experimental new browse dashboards, using window-scrolling virtualization",
+			Stage:             FeatureStageExperimental,
+			Owner:             grafanaFrontendPlatformSquad,
+			HideFromDocs:      true,
+			HideFromAdminPage: true,
+			FrontendOnly:      true,
+		},
 	}
 )
 
