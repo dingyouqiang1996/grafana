@@ -195,6 +195,7 @@ export interface FeatureToggles {
   passScopeToDashboardApi?: boolean;
   alertingApiServer?: boolean;
   dashboardRestoreUI?: boolean;
+  newVizLegend?: boolean;
   cloudWatchRoundUpEndTime?: boolean;
   bodyScrolling?: boolean;
   cloudwatchMetricInsightsCrossAccount?: boolean;

@@ -715,6 +715,10 @@ const (
 	// Enables the frontend to be able to restore a recently deleted dashboard
 	FlagDashboardRestoreUI = "dashboardRestoreUI"
 
+	// FlagNewVizLegend
+	// Enhanced legend for visualizations
+	FlagNewVizLegend = "newVizLegend"
+
 	// FlagCloudWatchRoundUpEndTime
 	// Round up end time for metric queries to the next minute to avoid missing data
 	FlagCloudWatchRoundUpEndTime = "cloudWatchRoundUpEndTime"

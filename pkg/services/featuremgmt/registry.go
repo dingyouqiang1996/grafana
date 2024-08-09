@@ -1341,6 +1341,13 @@ var (
 			Expression:  "false", // enabled by default
 		},
 		{
+			Name:         "newVizLegend",
+			Description:  "Enhanced legend for visualizations",
+			Stage:        FeatureStageExperimental,
+			FrontendOnly: true,
+			Owner:        grafanaDatavizSquad,
+		},
+		{
 			Name:        "cloudWatchRoundUpEndTime",
 			Description: "Round up end time for metric queries to the next minute to avoid missing data",
 			Stage:       FeatureStageGeneralAvailability,

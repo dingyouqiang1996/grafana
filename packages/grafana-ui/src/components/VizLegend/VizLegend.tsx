@@ -6,9 +6,10 @@ import { LegendDisplayMode } from '@grafana/schema';
 
 import { SeriesVisibilityChangeMode, usePanelContext } from '../PanelChrome';
 
+import { VizLegendColor } from './VizLegendColor';
 import { VizLegendList } from './VizLegendList';
 import { VizLegendTable } from './VizLegendTable';
-import { LegendProps, SeriesVisibilityChangeBehavior, VizLegendItem } from './types';
+import { LegendProps, SeriesVisibilityChangeBehavior, VizLegendItem, ColorLegendProps } from './types';
 import { mapMouseEventToMode } from './utils';
 
 /**
@@ -27,9 +28,17 @@ export function VizLegend<T>({
   itemRenderer,
   readonly,
   isSortable,
-}: LegendProps<T>) {
+  hoverValue,
+  colorPalette,
+  min,
+  max,
+  display,
+}: LegendProps<T> & ColorLegendProps) {
+  // JEV: ADDITION: add other callbacks to panel context? override/config callbacks?
   const { eventBus, onToggleSeriesVisibility, onToggleLegendSort } = usePanelContext();
 
+  // JEV: OBSERVATION: basic event handling/interactivity for legend items handled in PanelContext? How???
+  // JEV: REFACTOR: abstract this to it's own hook.
   const onMouseOver = useCallback(
     (
       item: VizLegendItem,
@@ -68,6 +77,7 @@ export function VizLegend<T>({
 
   const onLegendLabelClick = useCallback(
     (item: VizLegendItem, event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+      // JEV: PERK: onLabelClick custom prop
       if (onLabelClick) {
         onLabelClick(item, event);
       }
@@ -83,6 +93,7 @@ export function VizLegend<T>({
     [onToggleSeriesVisibility, onLabelClick, seriesVisibilityChangeBehavior]
   );
 
+  // JEV: REFACTOR: Make into own function?
   switch (displayMode) {
     case LegendDisplayMode.Table:
       return (
@@ -101,6 +112,7 @@ export function VizLegend<T>({
           isSortable={isSortable}
         />
       );
+    // JEV: REFACTOR: Do we even need a "list" component in general? Just disable some table features?
     case LegendDisplayMode.List:
       return (
         <VizLegendList<T>
@@ -114,9 +126,23 @@ export function VizLegend<T>({
           readonly={readonly}
         />
       );
+    case LegendDisplayMode.Color:
+      return (
+        <VizLegendColor
+          hoverValue={hoverValue}
+          colorPalette={colorPalette ?? []}
+          min={min ?? 0}
+          max={max ?? 0}
+          display={display}
+        />
+      );
     default:
       return null;
   }
 }
 
+// JEV: QUESTION: What does this do?
+// IHOR: This is a displayName for React DevTools. It's used to give a component a name in the React DevTools.
+// It's useful for debugging purposes. In that case, it's the same as the component name.
+// So, I don't see any reason to keep it.
 VizLegend.displayName = 'VizLegend';

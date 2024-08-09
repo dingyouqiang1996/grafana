@@ -16,6 +16,7 @@ import { CustomScrollbar } from '../CustomScrollbar/CustomScrollbar';
 export interface VizLayoutProps {
   width: number;
   height: number;
+  // JEV: OBSERVATION: the this is actually a legend component, not a legend config
   legend?: React.ReactElement<VizLayoutLegendProps> | null;
   children: (width: number, height: number) => React.ReactNode;
 }
@@ -96,7 +97,9 @@ export const VizLayout: VizLayoutComponentType = ({ width, height, legend, child
 
   return (
     <div style={containerStyle}>
+      {/* viz */}
       <div className={styles.viz}>{size && children(size.width, size.height)}</div>
+      {/* legend */}
       <div style={legendStyle} ref={legendRef}>
         <CustomScrollbar hideHorizontalTrack>{legend}</CustomScrollbar>
       </div>
@@ -113,6 +116,7 @@ export const getVizStyles = (theme: GrafanaTheme2) => {
     }),
   };
 };
+
 interface VizSize {
   width: number;
   height: number;

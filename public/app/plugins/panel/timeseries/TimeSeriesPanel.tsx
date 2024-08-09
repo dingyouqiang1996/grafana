@@ -61,6 +61,7 @@ export const TimeSeriesPanel = ({
   const [newAnnotationRange, setNewAnnotationRange] = useState<TimeRange2 | null>(null);
   const cursorSync = sync?.() ?? DashboardCursorSync.Off;
 
+  // JEV: REFACTOR: move this short circuit to before the calculations done above?
   if (!frames || suggestions) {
     return (
       <PanelDataErrorView
@@ -83,6 +84,7 @@ export const TimeSeriesPanel = ({
       timeZone={timezones}
       width={width}
       height={height}
+      // JEV: OBSERVATION: this is not a legend, but a legend configuration; also do we need this? this is alrady in "options"?
       legend={options.legend}
       options={options}
       replaceVariables={replaceVariables}
