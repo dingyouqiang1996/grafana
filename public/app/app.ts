@@ -86,7 +86,7 @@ import { getCoreExtensionConfigurations } from './features/plugins/extensions/ge
 import { createPluginExtensionsGetter } from './features/plugins/extensions/getPluginExtensions';
 import { ReactivePluginExtensionsRegistry } from './features/plugins/extensions/reactivePluginExtensionRegistry';
 import { ExposedComponentsRegistry } from './features/plugins/extensions/registry/ExposedComponentsRegistry';
-import { createUsePluginComponent } from './features/plugins/extensions/usePluginComponent';
+import { usePluginComponent } from './features/plugins/extensions/usePluginComponent';
 import { createUsePluginExtensions } from './features/plugins/extensions/usePluginExtensions';
 import { importPanelPlugin, syncGetPanelPlugin } from './features/plugins/importPanelPlugin';
 import { preloadPlugins } from './features/plugins/pluginPreloader';
@@ -124,6 +124,7 @@ if (process.env.NODE_ENV === 'development') {
 
 export class GrafanaApp {
   context!: GrafanaContextType;
+  extensionRegistries!: { exposedComponents: ExposedComponentsRegistry };
 
   async init() {
     try {
@@ -237,7 +238,7 @@ export class GrafanaApp {
 
       setPluginExtensionGetter(createPluginExtensionsGetter(extensionsRegistry));
       setPluginExtensionsHook(createUsePluginExtensions(extensionsRegistry));
-      setPluginComponentHook(createUsePluginComponent(exposedComponentsRegistry));
+      setPluginComponentHook(usePluginComponent);
 
       // initialize chrome service
       const queryParams = locationService.getSearchObject();
@@ -263,6 +264,10 @@ export class GrafanaApp {
         keybindings: keybindingsService,
         newAssetsChecker,
         config,
+      };
+
+      this.extensionRegistries = {
+        exposedComponents: exposedComponentsRegistry,
       };
 
       setReturnToPreviousHook(useReturnToPreviousInternal);

@@ -1,8 +1,9 @@
 import { act, render, screen } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 
+import { ExtensionRegistriesProvider } from './ExtensionRegistriesContext';
 import { ExposedComponentsRegistry } from './registry/ExposedComponentsRegistry';
-import { createUsePluginComponent } from './usePluginComponent';
+import { usePluginComponent } from './usePluginComponent';
 
 jest.mock('app/features/plugins/pluginSettings', () => ({
   getPluginSettings: jest.fn().mockResolvedValue({
@@ -17,14 +18,24 @@ jest.mock('app/features/plugins/pluginSettings', () => ({
 
 describe('usePluginComponent()', () => {
   let registry: ExposedComponentsRegistry;
+  let wrapper: ({ children }: { children: React.ReactNode }) => JSX.Element;
 
   beforeEach(() => {
     registry = new ExposedComponentsRegistry();
+
+    wrapper = ({ children }: { children: React.ReactNode }) => (
+      <ExtensionRegistriesProvider
+        registries={{
+          exposedComponents: registry,
+        }}
+      >
+        {children}
+      </ExtensionRegistriesProvider>
+    );
   });
 
   it('should return null if there are no component exposed for the id', () => {
-    const usePluginComponent = createUsePluginComponent(registry);
-    const { result } = renderHook(() => usePluginComponent('foo/bar'));
+    const { result } = renderHook(() => usePluginComponent('foo/bar'), { wrapper });
 
     expect(result.current.component).toEqual(null);
     expect(result.current.isLoading).toEqual(false);
@@ -39,8 +50,7 @@ describe('usePluginComponent()', () => {
       configs: [{ id, title: 'not important', description: 'not important', component: () => <div>Hello World</div> }],
     });
 
-    const usePluginComponent = createUsePluginComponent(registry);
-    const { result } = renderHook(() => usePluginComponent(id));
+    const { result } = renderHook(() => usePluginComponent(id), { wrapper });
     const Component = result.current.component;
 
     act(() => {
@@ -55,8 +65,7 @@ describe('usePluginComponent()', () => {
   it('should dynamically update when component is registered to the registry', async () => {
     const id = 'my-app-plugin/foo/bar/v1';
     const pluginId = 'my-app-plugin';
-    const usePluginComponent = createUsePluginComponent(registry);
-    const { result, rerender } = renderHook(() => usePluginComponent(id));
+    const { result, rerender } = renderHook(() => usePluginComponent(id), { wrapper });
 
     // No extensions yet
     expect(result.current.component).toBeNull();
@@ -94,9 +103,8 @@ describe('usePluginComponent()', () => {
   it('should only render the hook once', () => {
     const spy = jest.spyOn(registry, 'asObservable');
     const id = 'my-app-plugin/foo/bar';
-    const usePluginComponent = createUsePluginComponent(registry);
 
-    renderHook(() => usePluginComponent(id));
+    renderHook(() => usePluginComponent(id), { wrapper });
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });
