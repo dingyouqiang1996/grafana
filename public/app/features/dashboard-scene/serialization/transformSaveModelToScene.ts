@@ -321,6 +321,7 @@ export function createSceneVariableFromVariableModel(variable: TypedVariableMode
       baseFilters: variable.baseFilters ?? [],
       defaultKeys: variable.defaultKeys,
       useQueriesAsFilterForOptions: true,
+      supportsMultiValueOperators: config.featureToggles.adhocFilterOneOf,
     });
   }
   if (variable.type === 'custom') {
