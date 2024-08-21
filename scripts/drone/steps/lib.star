@@ -550,10 +550,12 @@ def test_backend_step():
             "wire-install",
         ],
         "commands": [
+            "set -o pipefail",
+            "go install github.com/bazelbuild/buildtools/buildifier@latest",
             # shared-mime-info and shared-mime-info-lang is used for exactly 1 test for the
             # mime.TypeByExtension function.
-            "apk add --update build-base shared-mime-info shared-mime-info-lang",
-            "go list -f '{{.Dir}}/...' -m  | xargs go test -short -covermode=atomic -timeout=5m",
+            "apk add --update build-base shared-mime-info shared-mime-info-lang bash",
+            "./scripts/go-workspace/test-includes.sh | xargs go test -tags requires_buildifier -short -covermode=atomic -timeout=5m",
         ],
     }
 
@@ -565,6 +567,7 @@ def test_backend_integration_step():
             "wire-install",
         ],
         "commands": [
+            "set -o pipefail",
             "apk add --update build-base",
             "go test -count=1 -covermode=atomic -timeout=5m -run '^TestIntegration' $(find ./pkg -type f -name '*_test.go' -exec grep -l '^func TestIntegration' '{}' '+' | grep -o '\\(.*\\)/' | sort -u)",
         ],
@@ -993,7 +996,8 @@ def integration_tests_steps(name, cmds, hostname = None, port = None, environmen
         "image": images["go"],
         "depends_on": depends,
         "commands": [
-            "apk add --update build-base",
+            "set -o pipefail",
+            "apk add --update build-base bash",
         ] + cmds,
     }
 
@@ -1056,7 +1060,7 @@ def mysql_integration_tests_steps(hostname, version):
 def redis_integration_tests_steps():
     cmds = [
         "go clean -testcache",
-        "go list -f '{{.Dir}}/...' -m  | xargs go test -run IntegrationRedis -covermode=atomic -timeout=2m",
+        "./scripts/go-workspace/test-includes.sh | xargs go test -run IntegrationRedis -covermode=atomic -timeout=2m",
     ]
 
     environment = {
@@ -1081,7 +1085,7 @@ def remote_alertmanager_integration_tests_steps():
 def memcached_integration_tests_steps():
     cmds = [
         "go clean -testcache",
-        "go list -f '{{.Dir}}/...' -m  | xargs go test -run IntegrationMemcached -covermode=atomic -timeout=2m",
+        "./scripts/go-workspace/test-includes.sh | xargs go test -run IntegrationMemcached -covermode=atomic -timeout=2m",
     ]
 
     environment = {

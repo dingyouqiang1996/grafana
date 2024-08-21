@@ -156,7 +156,8 @@ def test_backend_step_windows():
             "wire-install",
         ],
         "commands": [
-            "go test -short -covermode=atomic -timeout=5m ./pkg/...",
+            "go install github.com/bazelbuild/buildtools/buildifier@latest",
+            "go test -tags requires_buildifier -short -covermode=atomic -timeout=5m ./pkg/...",
         ],
     }
 
