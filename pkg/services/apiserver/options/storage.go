@@ -22,9 +22,23 @@ const (
 )
 
 type StorageOptions struct {
-	StorageType            StorageType
-	DataPath               string
-	Address                string
+	// The desired storage type
+	StorageType StorageType
+
+	// For unified-grpc, the address is required
+	Address string
+
+	// For file storage, this is the requested path
+	DataPath string
+
+	// Optional blob storage connection string
+	// file:///path/to/dir
+	// gs://my-bucket (using default credentials)
+	// s3://my-bucket?region=us-west-1 (using default credentials)
+	// azblob://my-container
+	BlobStore string
+
+	// {resource}.{group} = 1|2|3|4
 	DualWriterDesiredModes map[string]grafanarest.DualWriterMode
 }
 

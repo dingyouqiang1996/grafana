@@ -16,7 +16,8 @@ type storage struct {
 }
 
 func newStorage(scheme *runtime.Scheme) (*storage, error) {
-	strategy := grafanaregistry.NewStrategy(scheme)
+	//strategy := grafanaregistry.NewStrategy(scheme)
+	strategy := NewBlobStrategy(scheme)
 	resourceInfo := v0alpha1.DashboardResourceInfo
 	store := &genericregistry.Store{
 		NewFunc:                   resourceInfo.NewFunc,

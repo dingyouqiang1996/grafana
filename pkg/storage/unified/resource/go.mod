@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/fullstorydev/grpchan v1.1.1
+	github.com/google/uuid v1.6.0
 	github.com/grafana/authlib v0.0.0-20240730122259-a0d13672efb1
 	github.com/grafana/authlib/claims v0.0.0-20240809101159-74eaccc31a06
 	github.com/grafana/grafana/pkg/apimachinery v0.0.0-20240808164224-787abccfbc9e
