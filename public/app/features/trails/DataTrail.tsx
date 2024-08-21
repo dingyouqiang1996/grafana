@@ -1,9 +1,12 @@
 import { css } from '@emotion/css';
+import { useEffect } from 'react';
 
-import { AdHocVariableFilter, GrafanaTheme2, PageLayoutType, VariableHide, urlUtil } from '@grafana/data';
+import { AdHocVariableFilter, GrafanaTheme2, PageLayoutType, RawTimeRange, VariableHide, urlUtil } from '@grafana/data';
 import { locationService, useChromeHeaderHeight } from '@grafana/runtime';
 import {
   AdHocFiltersVariable,
+  ConstantVariable,
+  CustomVariable,
   DataSourceVariable,
   getUrlSyncManager,
   SceneComponentProps,
@@ -20,6 +23,7 @@ import {
   sceneUtils,
   SceneVariable,
   SceneVariableSet,
+  SceneVariableState,
   VariableDependencyConfig,
   VariableValueSelectors,
 } from '@grafana/scenes';
@@ -34,8 +38,21 @@ import { MetricsHeader } from './MetricsHeader';
 import { getTrailStore } from './TrailStore/TrailStore';
 import { MetricDatasourceHelper } from './helpers/MetricDatasourceHelper';
 import { reportChangeInLabelFilters } from './interactions';
-import { MetricSelectedEvent, trailDS, VAR_DATASOURCE, VAR_FILTERS } from './shared';
-import { getMetricName } from './utils';
+import { getDeploymentEnvironments, getOtelResources, isOtelStandardization, totalOtelResources } from './otel/api';
+import { OtelResourcesObject, OtelTargetType } from './otel/types';
+import { sortResources } from './otel/util';
+import {
+  getVariablesWithOtelJoinQueryConstant,
+  MetricSelectedEvent,
+  trailDS,
+  VAR_DATASOURCE,
+  VAR_DATASOURCE_EXPR,
+  VAR_FILTERS,
+  VAR_OTEL_DEPLOYMENT_ENV,
+  VAR_OTEL_JOIN_QUERY,
+  VAR_OTEL_RESOURCES,
+} from './shared';
+import { getMetricName, getOtelJoinQuery, getOtelResourcesObject, getTrailFor } from './utils';
 
 export interface DataTrailState extends SceneObjectState {
   topScene?: SceneObject;
@@ -49,10 +66,33 @@ export interface DataTrailState extends SceneObjectState {
   initialDS?: string;
   initialFilters?: AdHocVariableFilter[];
 
+  // this is for otel, if the data source has it, it will be updated here
+  hasOtelResources?: boolean;
+  useOtelExperience?: boolean;
+  otelTargets?: OtelTargetType; // all the targets with job and instance regex, job=~"<job-v>|<job-v>"", instance=~"<instance-v>|<instance-v>"
+  otelResources?: string[];
+  otelJoinQuery?: string;
+  isStandardOtel?: boolean;
+
+  // moved into settings
+  showPreviews?: boolean;
+
   // Synced with url
   metric?: string;
   metricSearch?: string;
 }
+
+// NEXT WORK,
+// - [x] filter for metrics that are related to otel resources
+// - [x] refilter metrics, build layout on change of otel targets
+// - [x] move the toggle into the settings
+// - [x] default to otel experience on if DS has otel resources
+// - [x] sort the labels by blessed list
+// - [x] clear otel filters and otel join query on changing data source
+// - [x] clear state checks like hasOtelResources when data source is changed
+// - [ ] update the url by all the state
+// - [ ] show the labels in the breakdown
+// - [ ] test the limit of a match string when filtering metrics in MetricSelectScene
 
 export class DataTrail extends SceneObjectBase<DataTrailState> {
   protected _urlSync = new SceneObjectUrlSyncConfig(this, { keys: ['metric', 'metricSearch'] });
@@ -60,7 +100,10 @@ export class DataTrail extends SceneObjectBase<DataTrailState> {
   public constructor(state: Partial<DataTrailState>) {
     super({
       $timeRange: state.$timeRange ?? new SceneTimeRange({}),
-      $variables: state.$variables ?? getVariableSet(state.initialDS, state.metric, state.initialFilters),
+      // the initial variables should include a metric for metric scene and the otelJoinQuery.
+      // NOTE: The other OTEL filters should be included too before this work is merged
+      $variables:
+        state.$variables ?? getVariableSet(state.initialDS, state.metric, state.initialFilters, state.otelJoinQuery),
       controls: state.controls ?? [
         new VariableValueSelectors({ layout: 'vertical' }),
         new SceneControlsSpacer(),
@@ -70,6 +113,12 @@ export class DataTrail extends SceneObjectBase<DataTrailState> {
       history: state.history ?? new DataTrailHistory({}),
       settings: state.settings ?? new DataTrailSettings({}),
       createdAt: state.createdAt ?? new Date().getTime(),
+      // default to false but update this to true on checkOtelSandardization()
+      // or true if the user either turned on the experience
+      useOtelExperience: state.useOtelExperience ?? false,
+      // preserve the otel join query
+      otelJoinQuery: state.otelJoinQuery ?? '',
+      showPreviews: true,
       ...state,
     });
 
@@ -108,11 +157,41 @@ export class DataTrail extends SceneObjectBase<DataTrailState> {
   }
 
   protected _variableDependency = new VariableDependencyConfig(this, {
-    variableNames: [VAR_DATASOURCE],
+    variableNames: [VAR_DATASOURCE, VAR_OTEL_RESOURCES, VAR_OTEL_DEPLOYMENT_ENV, VAR_OTEL_JOIN_QUERY],
     onReferencedVariableValueChanged: async (variable: SceneVariable) => {
       const { name } = variable.state;
+
       if (name === VAR_DATASOURCE) {
         this.datasourceHelper.reset();
+
+        // fresh check for otel experience
+        this.checkDataSourceForOTelResources();
+        // clear filters on resetting the data source
+        const adhocVariable = sceneGraph.lookupVariable(VAR_FILTERS, this);
+        if (adhocVariable instanceof AdHocFiltersVariable) {
+          adhocVariable.setState({ filters: [] });
+        }
+      }
+
+      // update otel variables when changed
+      if (this.state.useOtelExperience && (name === VAR_OTEL_DEPLOYMENT_ENV || name === VAR_OTEL_RESOURCES)) {
+        const resourcesObject: OtelResourcesObject = getOtelResourcesObject(this);
+        const otelJoinQuery = getOtelJoinQuery(resourcesObject);
+
+        this.setState({ otelJoinQuery });
+        // update the otel join query variable too
+        const otelJoinQueryVariable = sceneGraph.lookupVariable(VAR_OTEL_JOIN_QUERY, this);
+        if (otelJoinQueryVariable instanceof ConstantVariable) {
+          otelJoinQueryVariable.setState({ value: otelJoinQuery });
+        }
+
+        // update the targets used to filter metrics
+        const timeRange: RawTimeRange | undefined = this.state.$timeRange?.state;
+        const datasourceUid = sceneGraph.interpolate(this, VAR_DATASOURCE_EXPR);
+        if (timeRange) {
+          const otelTargets = await totalOtelResources(datasourceUid, timeRange, resourcesObject.filters);
+          this.setState({ otelTargets });
+        }
       }
     },
   });
@@ -210,11 +289,163 @@ export class DataTrail extends SceneObjectBase<DataTrailState> {
     this.setState(stateUpdate);
   }
 
+  /**
+   * Check that the data source has otel resources
+   * Check that the data source is standard for OTEL
+   * Show a warning if not
+   * Update the following variables:
+   * deployment_environment (first filter), otelResources (filters), otelJoinQuery (used in the query)
+   * Enable the otel experience
+   *
+   * @returns
+   */
+  public async checkDataSourceForOTelResources() {
+    // call up in to the parent trail
+    const trail = getTrailFor(this);
+
+    const otelResourcesVariable = sceneGraph.lookupVariable(VAR_OTEL_RESOURCES, this);
+    const otelDepEnvVariable = sceneGraph.lookupVariable(VAR_OTEL_DEPLOYMENT_ENV, this);
+    const otelJoinQueryVariable = sceneGraph.lookupVariable(VAR_OTEL_JOIN_QUERY, this);
+    // get the time range
+    const timeRange: RawTimeRange | undefined = trail.state.$timeRange?.state;
+
+    if (
+      timeRange &&
+      otelResourcesVariable instanceof AdHocFiltersVariable &&
+      otelDepEnvVariable instanceof CustomVariable &&
+      otelJoinQueryVariable instanceof ConstantVariable
+    ) {
+      const datasourceUid = sceneGraph.interpolate(trail, VAR_DATASOURCE_EXPR);
+
+      const otelTargets = await totalOtelResources(datasourceUid, timeRange);
+      const deploymentEnvironments = await getDeploymentEnvironments(datasourceUid, timeRange);
+      const hasOtelResources = otelTargets.job !== '' && otelTargets.instance !== '';
+      const isStandard = await isOtelStandardization(datasourceUid, timeRange);
+
+      if (hasOtelResources && isStandard && deploymentEnvironments.length > 0) {
+        // get the labels for otel resources
+        const excludedFilters = getOtelFilterKeys(otelResourcesVariable);
+        let resources = await getOtelResources(datasourceUid, timeRange, excludedFilters);
+        if (resources.length === 0) {
+          return;
+        }
+        // make sure not to re-add filters from the blessed list
+        resources = sortResources(resources, excludedFilters);
+
+        // make the variable options
+        const otelLabels = resources.map((resource) => {
+          return { text: resource };
+        });
+
+        otelResourcesVariable?.setState({
+          defaultKeys: otelLabels,
+          hide: VariableHide.hideLabel,
+        });
+
+        let varQuery = '';
+        const options = deploymentEnvironments.map((env) => {
+          varQuery += env + ',';
+          return { value: env, label: env };
+        });
+
+        otelDepEnvVariable?.setState({
+          // cannot have an undefined custom value
+          // this breaks everything
+          // create an issue for this
+          value: options[0].value,
+          query: varQuery,
+          options: options,
+          hide: VariableHide.dontHide,
+        });
+
+        // Because we need to define the deployment environment variable
+        // we also need to update the otel join query state and variable
+        const resourcesObject: OtelResourcesObject = getOtelResourcesObject(this, options[0].value);
+        const otelJoinQuery = getOtelJoinQuery(resourcesObject);
+        this.setState({ otelJoinQuery });
+        // update the otel join query variable too
+        otelJoinQueryVariable.setState({ value: otelJoinQuery });
+
+        // now we can filter target_info targets by deployment_environment="somevalue"
+        // and use these new targets to reduce the metrics
+        const filteredOtelTargets = await totalOtelResources(datasourceUid, timeRange, resourcesObject.filters);
+        this.setState({
+          hasOtelResources,
+          isStandardOtel: isStandard && deploymentEnvironments.length > 0,
+          otelTargets: filteredOtelTargets,
+          otelResources: resources,
+          useOtelExperience: true,
+        });
+      } else {
+        // if there are no resources reset the otel variables and otel state
+        // or if not standard
+        otelResourcesVariable.setState({
+          defaultKeys: [],
+          hide: VariableHide.hideVariable,
+        });
+
+        otelDepEnvVariable.setState({
+          value: '',
+          hide: VariableHide.hideVariable,
+        });
+
+        otelJoinQueryVariable.setState({ value: '' });
+
+        this.setState({
+          hasOtelResources,
+          isStandardOtel: isStandard && deploymentEnvironments.length > 0,
+          useOtelExperience: false,
+          otelTargets: { job: '', instance: '' },
+          otelResources: [],
+          otelJoinQuery: '',
+        });
+      }
+    }
+  }
+
   static Component = ({ model }: SceneComponentProps<DataTrail>) => {
-    const { controls, topScene, history, settings, metric } = model.useState();
+    const { controls, topScene, history, settings, metric, useOtelExperience, hasOtelResources } = model.useState();
+
     const chromeHeaderHeight = useChromeHeaderHeight();
     const styles = useStyles2(getStyles, chromeHeaderHeight ?? 0);
     const showHeaderForFirstTimeUsers = getTrailStore().recent.length < 2;
+
+    useEffect(() => {
+      // check if the otel experience has been enabled
+      if (!useOtelExperience) {
+        // if the experience has been turned off, reset the otel variables
+        const otelResourcesVariable = sceneGraph.lookupVariable(VAR_OTEL_RESOURCES, model);
+        const otelDepEnvVariable = sceneGraph.lookupVariable(VAR_OTEL_DEPLOYMENT_ENV, model);
+        const otelJoinQueryVariable = sceneGraph.lookupVariable(VAR_OTEL_JOIN_QUERY, model);
+
+        if (
+          otelResourcesVariable instanceof AdHocFiltersVariable &&
+          otelDepEnvVariable instanceof CustomVariable &&
+          otelJoinQueryVariable instanceof ConstantVariable
+        ) {
+          otelResourcesVariable.setState({
+            defaultKeys: [],
+            hide: VariableHide.hideVariable,
+          });
+
+          otelDepEnvVariable.setState({
+            value: '',
+            hide: VariableHide.hideVariable,
+          });
+
+          otelJoinQueryVariable.setState({ value: '' });
+
+          model.setState({
+            otelTargets: { job: '', instance: '' },
+            otelResources: [],
+            otelJoinQuery: '',
+          });
+        }
+      } else {
+        // if experience is enabled, check standardization and update the otel variables
+        model.checkDataSourceForOTelResources();
+      }
+    }, [model, hasOtelResources, useOtelExperience]);
 
     return (
       <Page navId="explore/metrics" pageNav={{ text: getMetricName(metric) }} layout={PageLayoutType.Custom}>
@@ -244,7 +475,12 @@ export function getTopSceneFor(metric?: string) {
   }
 }
 
-function getVariableSet(initialDS?: string, metric?: string, initialFilters?: AdHocVariableFilter[]) {
+function getVariableSet(
+  initialDS?: string,
+  metric?: string,
+  initialFilters?: AdHocVariableFilter[],
+  otelJoinQuery?: string
+) {
   return new SceneVariableSet({
     variables: [
       new DataSourceVariable({
@@ -253,6 +489,26 @@ function getVariableSet(initialDS?: string, metric?: string, initialFilters?: Ad
         description: 'Only prometheus data sources are supported',
         value: initialDS,
         pluginId: 'prometheus',
+      }),
+      new CustomVariable({
+        name: VAR_OTEL_DEPLOYMENT_ENV,
+        label: 'Deployment environment',
+        hide: VariableHide.hideVariable,
+        value: undefined,
+        placeholder: 'Select',
+        isMulti: true,
+        includeAll: true,
+        defaultToAll: false,
+        noValueOnClear: true,
+      }),
+      new AdHocFiltersVariable({
+        name: VAR_OTEL_RESOURCES,
+        addFilterButtonText: 'Add OTel resources',
+        datasource: trailDS,
+        hide: VariableHide.hideVariable,
+        layout: 'vertical',
+        defaultKeys: [],
+        applyMode: 'manual',
       }),
       new AdHocFiltersVariable({
         name: VAR_FILTERS,
@@ -263,6 +519,7 @@ function getVariableSet(initialDS?: string, metric?: string, initialFilters?: Ad
         filters: initialFilters ?? [],
         baseFilters: getBaseFiltersForMetric(metric),
       }),
+      ...getVariablesWithOtelJoinQueryConstant(otelJoinQuery ?? ''),
     ],
   });
 }
@@ -301,4 +558,16 @@ function getBaseFiltersForMetric(metric?: string): AdHocVariableFilter[] {
     return [{ key: '__name__', operator: '=', value: metric }];
   }
   return [];
+}
+
+function getOtelFilterKeys(variable: SceneVariable<SceneVariableState> | null) {
+  if (!variable) {
+    return [];
+  }
+
+  let filterKeys: string[] = [];
+  if (variable instanceof AdHocFiltersVariable) {
+    filterKeys = variable?.state.filters.map((f) => f.key);
+  }
+  return filterKeys;
 }

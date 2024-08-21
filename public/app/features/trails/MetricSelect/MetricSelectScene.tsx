@@ -63,7 +63,6 @@ export interface MetricSelectSceneState extends SceneObjectState {
   body: SceneFlexLayout | SceneCSSGridLayout;
   rootGroup?: Node;
   metricPrefix?: string;
-  showPreviews?: boolean;
   metricNames?: string[];
   metricNamesLoading?: boolean;
   metricNamesError?: string;
@@ -86,7 +85,6 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
 
   constructor(state: Partial<MetricSelectSceneState>) {
     super({
-      showPreviews: true,
       $variables: state.$variables,
       metricPrefix: state.metricPrefix ?? METRIC_PREFIX_ALL,
       body:
@@ -183,6 +181,34 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
       }
     });
 
+    this._subs.add(
+      trail.subscribeToState(({ otelTargets }, oldState) => {
+        // if the otel targets have changed, get the new list of metrics
+        if (
+          otelTargets?.instance !== oldState.otelTargets?.instance &&
+          otelTargets?.job !== oldState.otelTargets?.job
+        ) {
+          this._debounceRefreshMetricNames();
+        }
+      })
+    );
+
+    this._subs.add(
+      trail.subscribeToState(({ useOtelExperience }, oldState) => {
+        // users will most likely not switch this off but for now,
+        // update metric names when changing useOtelExperience
+        this._debounceRefreshMetricNames();
+      })
+    );
+
+    this._subs.add(
+      trail.subscribeToState(({ showPreviews }, oldState) => {
+        // move showPreviews into the settings
+        // build layout when toggled
+        this.buildLayout();
+      })
+    );
+
     this._debounceRefreshMetricNames();
   }
 
@@ -195,6 +221,26 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
     }
 
     const matchTerms = [];
+
+    let noOtelMetrics = false;
+
+    if (trail.state.useOtelExperience) {
+      const jobsRegex = trail.state.otelTargets?.job;
+      const instancesRegex = trail.state.otelTargets?.instance;
+      // no targets have this combination of filters so there are no metrics that can be joined
+      // show no metrics
+      if (jobsRegex && instancesRegex) {
+        // add the job and instance filters
+        // but be careful, because these might get overriden
+        // I think it will be fine that they are overidden
+        // NOTE: test the limit of size of filters we can add, limit otel filters if there are too many
+        // test this with a customer with a larger amount of targets
+        matchTerms.push(`job=~${trail.state.otelTargets?.job}`);
+        matchTerms.push(`instance=~${trail.state.otelTargets?.instance}`);
+      } else {
+        noOtelMetrics = true;
+      }
+    }
 
     const filtersVar = sceneGraph.lookupVariable(VAR_FILTERS, this);
     const hasFilters = filtersVar instanceof AdHocFiltersVariable && filtersVar.getValue()?.valueOf();
@@ -214,15 +260,21 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
     try {
       const response = await getMetricNames(datasourceUid, timeRange, match, MAX_METRIC_NAMES);
       const searchRegex = createJSRegExpFromSearchTerms(getMetricSearch(this));
-      const metricNames = searchRegex
+      let metricNames = searchRegex
         ? response.data.filter((metric) => !searchRegex || searchRegex.test(metric))
         : response.data;
 
-      const metricNamesWarning = response.limitReached
+      let metricNamesWarning = response.limitReached
         ? `This feature will only return up to ${MAX_METRIC_NAMES} metric names for performance reasons. ` +
           `This limit is being exceeded for the current data source. ` +
           `Add search terms or label filters to narrow down the number of metric names returned.`
         : undefined;
+
+      // if there are no otel targets for otel resources, there will be no labels
+      if (noOtelMetrics) {
+        metricNames = [];
+        metricNamesWarning = undefined;
+      }
 
       let bodyLayout = this.state.body;
       const rootGroupNode = await this.generateGroups(metricNames);
@@ -312,6 +364,8 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
   }
 
   private async buildLayout() {
+    const trail = getTrailFor(this);
+    const showPreviews = trail.state.showPreviews;
     // Temp hack when going back to select metric scene and variable updates
     if (this.ignoreNextUpdate) {
       this.ignoreNextUpdate = false;
@@ -324,7 +378,7 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
     }
 
     const children = await this.populateFilterableViewLayout();
-    const rowTemplate = this.state.showPreviews ? ROW_PREVIEW_HEIGHT : ROW_CARD_HEIGHT;
+    const rowTemplate = showPreviews ? ROW_PREVIEW_HEIGHT : ROW_CARD_HEIGHT;
     this.state.body.setState({ children, autoRows: rowTemplate });
   }
 
@@ -361,6 +415,7 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
 
   private async populatePanels(trail: DataTrail, filters: ReturnType<typeof getFilters>, values: string[]) {
     const currentFilterCount = filters?.length || 0;
+    const showPreviews = trail.state.showPreviews;
 
     const previewPanelLayoutItems: SceneFlexItem[] = [];
     for (let index = 0; index < values.length; index++) {
@@ -369,7 +424,7 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
       const metadata = await trail.getMetricMetadata(metricName);
       const description = getMetricDescription(metadata);
 
-      if (this.state.showPreviews) {
+      if (showPreviews) {
         if (metric.itemRef && metric.isPanel) {
           previewPanelLayoutItems.push(metric.itemRef.resolve());
           continue;
@@ -431,29 +486,23 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
     });
   };
 
-  public onTogglePreviews = () => {
-    this.setState({ showPreviews: !this.state.showPreviews });
-    this.buildLayout();
+  public onToggleOtelExperience = () => {
+    const trail = getTrailFor(this);
+    const useOtelExperience = trail.state.useOtelExperience;
+
+    trail.setState({ useOtelExperience: !useOtelExperience });
   };
 
   public static Component = ({ model }: SceneComponentProps<MetricSelectScene>) => {
-    const {
-      showPreviews,
-      body,
-      metricNames,
-      metricNamesError,
-      metricNamesLoading,
-      metricNamesWarning,
-      rootGroup,
-      metricPrefix,
-    } = model.useState();
+    const { body, metricNames, metricNamesError, metricNamesLoading, metricNamesWarning, rootGroup, metricPrefix } =
+      model.useState();
     const { children } = body.useState();
     const trail = getTrailFor(model);
     const styles = useStyles2(getStyles);
 
     const [warningDismissed, dismissWarning] = useReducer(() => true, false);
 
-    const { metricSearch } = trail.useState();
+    const { metricSearch, useOtelExperience, hasOtelResources, isStandardOtel } = trail.useState();
 
     const tooStrict = children.length === 0 && metricSearch;
     const noMetrics = !metricNamesLoading && metricNames && metricNames.length === 0;
@@ -478,6 +527,18 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
         <Icon className={styles.warningIcon} name="exclamation-triangle" />
       </Tooltip>
     ) : undefined;
+
+    const otelExperienceTooltip = () => {
+      const enabled = hasOtelResources && isStandardOtel;
+
+      if (enabled) {
+        return (
+          <Trans i18nKey={''}>This switch enables filtering by OTel resources for OTel native data sources.</Trans>
+        );
+      }
+
+      return <Trans i18nKey={''}>This setting is disabled because this is not an OTel native data source.</Trans>;
+    };
 
     return (
       <div className={styles.container}>
@@ -514,7 +575,25 @@ export class MetricSelectScene extends SceneObjectBase<MetricSelectSceneState> i
               ]}
             />
           </Field>
-          <InlineSwitch showLabel={true} label="Show previews" value={showPreviews} onChange={model.onTogglePreviews} />
+          {hasOtelResources && (
+            <Field
+              label={
+                <div className={styles.displayOptionTooltip}>
+                  <Trans i18nKey="">Filter by</Trans>
+                  <IconButton name={'info-circle'} size="sm" variant={'secondary'} tooltip={otelExperienceTooltip} />
+                </div>
+              }
+              className={styles.displayOption}
+            >
+              <InlineSwitch
+                disabled={!isStandardOtel}
+                showLabel={true}
+                label="Otel experience"
+                value={useOtelExperience}
+                onChange={model.onToggleOtelExperience}
+              />
+            </Field>
+          )}
         </div>
         {metricNamesError && (
           <Alert title="Unable to retrieve metric names" severity="error">
