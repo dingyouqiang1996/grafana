@@ -202,4 +202,5 @@ export interface FeatureToggles {
   backgroundPluginInstaller?: boolean;
   dataplaneAggregator?: boolean;
   adhocFilterOneOf?: boolean;
+  newVizLegend?: boolean;
 }

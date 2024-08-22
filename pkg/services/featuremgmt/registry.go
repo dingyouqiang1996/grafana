@@ -1393,6 +1393,13 @@ var (
 			Stage:       FeatureStageExperimental,
 			Owner:       grafanaDashboardsSquad,
 		},
+		{
+			Name:         "newVizLegend",
+			Description:  "Enhanced legend for visualizations",
+			Stage:        FeatureStageExperimental,
+			FrontendOnly: true,
+			Owner:        grafanaDatavizSquad,
+		},
 	}
 )
 
