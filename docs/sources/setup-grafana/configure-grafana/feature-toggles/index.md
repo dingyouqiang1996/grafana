@@ -193,6 +193,7 @@ Experimental features might be changed or removed without prior notice.
 | `backgroundPluginInstaller`                 | Enable background plugin installer                                                                                                                                                                                                                                                |
 | `dataplaneAggregator`                       | Enable grafana dataplane aggregator                                                                                                                                                                                                                                               |
 | `adhocFilterOneOf`                          | Exposes a new 'one of' operator for ad-hoc filters. This operator allows users to filter by multiple values in a single filter.                                                                                                                                                   |
+| `appSidecar`                                | Enable the app sidecar feature that allows rendering 2 apps at the same time                                                                                                                                                                                                      |
 
 ## Development feature toggles
 

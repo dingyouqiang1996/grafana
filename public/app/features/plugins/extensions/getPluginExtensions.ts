@@ -7,6 +7,7 @@ import {
   type PluginExtensionLinkConfig,
   type PluginExtensionComponent,
   urlUtil,
+  PluginExtensionEventHelpers,
 } from '@grafana/data';
 import { GetPluginExtensions, reportInteraction } from '@grafana/runtime';
 
@@ -17,9 +18,12 @@ import {
   getReadOnlyProxy,
   logWarning,
   generateExtensionId,
-  getEventHelpers,
   isPluginExtensionComponentConfig,
   wrapWithPluginContext,
+  createOpenModalFunction,
+  openAppInSideview,
+  closeAppInSideview,
+  isAppOpened,
 } from './utils';
 import {
   assertIsReactComponent,
@@ -77,7 +81,7 @@ export const getPluginExtensions: GetExtensions = ({ context, extensionPointId, 
 
       // LINK
       if (isPluginExtensionLinkConfig(extensionConfig)) {
-        // Run the configure() function with the current context, and apply the ovverides
+        // Run the configure() function with the current context, and apply the overrides
         const overrides = getLinkExtensionOverrides(pluginId, extensionConfig, frozenContext);
 
         // configure() returned an `undefined` -> hide the extension
@@ -115,6 +119,7 @@ export const getPluginExtensions: GetExtensions = ({ context, extensionPointId, 
 
           title: extensionConfig.title,
           description: extensionConfig.description,
+          // TODO: add openAppInSideview and closeAppInSideview to plugin context inside
           component: wrapWithPluginContext(pluginId, extensionConfig.component),
         };
 
@@ -133,7 +138,7 @@ export const getPluginExtensions: GetExtensions = ({ context, extensionPointId, 
 
 function getLinkExtensionOverrides(pluginId: string, config: PluginExtensionLinkConfig, context?: object) {
   try {
-    const overrides = config.configure?.(context);
+    const overrides = config.configure?.(context, { isAppOpened: () => isAppOpened(pluginId) });
 
     // Hiding the extension
     if (overrides === undefined) {
@@ -203,7 +208,15 @@ function getLinkExtensionOnClick(
         category: config.category,
       });
 
-      const result = onClick(event, getEventHelpers(pluginId, context));
+      const helpers: PluginExtensionEventHelpers = {
+        context,
+        openModal: createOpenModalFunction(pluginId),
+        isAppOpened: () => isAppOpened(pluginId),
+        openAppInSideview: () => openAppInSideview(pluginId),
+        closeAppInSideview: () => closeAppInSideview(pluginId),
+      };
+
+      const result = onClick(event, helpers);
 
       if (isPromise(result)) {
         result.catch((e) => {

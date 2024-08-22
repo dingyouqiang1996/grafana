@@ -18,6 +18,8 @@ import {
 } from '@grafana/data';
 import { Modal } from '@grafana/ui';
 import appEvents from 'app/core/app_events';
+// TODO: instead of depending on the service as a singleton, inject it as an argument from the React context
+import { sidecarService } from 'app/core/services/SidecarService';
 import { getPluginSettings } from 'app/features/plugins/pluginSettings';
 import { ShowModalReactEvent } from 'app/types/events';
 
@@ -49,9 +51,8 @@ export function handleErrorsInFn(fn: Function, errorMessagePrefix = '') {
   };
 }
 
-// Event helpers are designed to make it easier to trigger "core actions" from an extension event handler, e.g. opening a modal or showing a notification.
-export function getEventHelpers(pluginId: string, context?: Readonly<object>): PluginExtensionEventHelpers {
-  const openModal: PluginExtensionEventHelpers['openModal'] = async (options) => {
+export function createOpenModalFunction(pluginId: string): PluginExtensionEventHelpers['openModal'] {
+  return async (options) => {
     const { title, body, width, height } = options;
 
     appEvents.publish(
@@ -60,8 +61,6 @@ export function getEventHelpers(pluginId: string, context?: Readonly<object>): P
       })
     );
   };
-
-  return { openModal, context };
 }
 
 type ModalWrapperProps = {
@@ -301,3 +300,9 @@ export function createExtensionSubMenu(extensions: PluginExtensionLink[]): Panel
 
   return subMenu;
 }
+
+export const openAppInSideview = (pluginId: string) => sidecarService.openApp(pluginId);
+
+export const closeAppInSideview = (pluginId: string) => sidecarService.closeApp(pluginId);
+
+export const isAppOpened = (pluginId: string) => sidecarService.isAppOpened(pluginId);
