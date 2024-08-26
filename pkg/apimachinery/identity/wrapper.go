@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"strings"
 	"time"
 
 	"github.com/grafana/authlib/claims"
@@ -11,6 +12,38 @@ var _ claims.AccessClaims = &IDClaimsWrapper{}
 
 type IDClaimsWrapper struct {
 	Source Requester
+}
+
+func (i *IDClaimsWrapper) NamespaceMatches(namespace string) bool {
+	parts := strings.Split(i.Source.GetAllowedKubernetesNamespace(), "-")
+	// for multi-tenant operators, access tokens will have a namespace claim of "*"
+	if parts[0] == "*" {
+		return true
+	}
+
+	if len(parts) < 2 {
+		return false
+	}
+
+	// for cluster-scoped resources, namespace in request is "", but we already checked
+	// that this identity doesn't have such access when we checked (parts[0] == "*")
+	if namespace == "" {
+		return false
+	}
+
+	namespaceParts := strings.Split(namespace, "-")
+	if len(namespaceParts) < 2 {
+		return false
+	}
+	if (parts[0] == "stack" || parts[0] == "stacks") && (namespaceParts[0] == "stack" || namespaceParts[0] == "stacks") {
+		return namespaceParts[1] == parts[1]
+	}
+
+	return i.Source.GetAllowedKubernetesNamespace() == namespace
+}
+
+func (i *IDClaimsWrapper) IsNil() bool {
+	return i.Source.IsNil()
 }
 
 // GetAuthenticatedBy implements claims.IdentityClaims.

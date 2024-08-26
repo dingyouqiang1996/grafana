@@ -3,7 +3,9 @@ package request
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/grafana/authlib/authz"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/grafana/authlib/claims"
@@ -17,10 +19,23 @@ type NamespaceMapper = claims.NamespaceFormatter
 // GetNamespaceMapper returns a function that will convert orgIds into a consistent namespace
 func GetNamespaceMapper(cfg *setting.Cfg) NamespaceMapper {
 	if cfg != nil && cfg.StackID != "" {
-		//val := claims.CloudNamespaceFormatter(cfg.Sta)
-		return func(orgId int64) string { return "stack-" + cfg.StackID }
+		stackIdInt, err := strconv.Atoi(cfg.StackID)
+		if err != nil {
+			stackIdInt = 0
+		}
+		cloudNamespace := claims.CloudNamespaceFormatter(int64(stackIdInt))
+		return func(orgId int64) string { return cloudNamespace }
 	}
 	return claims.OrgNamespaceFormatter
+}
+
+// GetNamespaceAccessCheckerType returns a function that is used to enforce authn depending on our use-case
+// e.g. OSS or cloud
+func GetNamespaceAccessCheckerType(cfg *setting.Cfg) authz.NamespaceAccessCheckerType {
+	if cfg != nil && cfg.StackID != "" {
+		return authz.NamespaceAccessCheckerTypeCloud
+	}
+	return authz.NamespaceAccessCheckerTypeOrg
 }
 
 func NamespaceInfoFrom(ctx context.Context, requireOrgID bool) (claims.NamespaceInfo, error) {
