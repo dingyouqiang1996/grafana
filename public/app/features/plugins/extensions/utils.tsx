@@ -5,7 +5,6 @@ import { useAsync } from 'react-use';
 
 import {
   type PluginExtensionLinkConfig,
-  type PluginExtensionComponentConfig,
   type PluginExtensionConfig,
   type PluginExtensionEventHelpers,
   PluginExtensionTypes,
@@ -15,6 +14,7 @@ import {
   PluginContextProvider,
   PluginExtensionLink,
   PanelMenuItem,
+  PluginAddedLinkConfig,
 } from '@grafana/data';
 import { Modal } from '@grafana/ui';
 import appEvents from 'app/core/app_events';
@@ -29,12 +29,6 @@ export function isPluginExtensionLinkConfig(
   extension: PluginExtensionConfig | undefined
 ): extension is PluginExtensionLinkConfig {
   return typeof extension === 'object' && 'type' in extension && extension['type'] === PluginExtensionTypes.link;
-}
-
-export function isPluginExtensionComponentConfig<Props extends object>(
-  extension: PluginExtensionConfig | undefined | PluginExtensionComponentConfig<Props>
-): extension is PluginExtensionComponentConfig<Props> {
-  return typeof extension === 'object' && 'type' in extension && extension['type'] === PluginExtensionTypes.component;
 }
 
 export function handleErrorsInFn(fn: Function, errorMessagePrefix = '') {
@@ -225,11 +219,8 @@ export function isReadOnlyProxy(value: unknown): boolean {
   return isRecord(value) && value[_isProxy] === true;
 }
 
-export function createExtensionLinkConfig<T extends object>(
-  config: Omit<PluginExtensionLinkConfig<T>, 'type'>
-): PluginExtensionLinkConfig {
-  const linkConfig: PluginExtensionLinkConfig<T> = {
-    type: PluginExtensionTypes.link,
+export function createAddedLinkConfig<T extends object>(config: PluginAddedLinkConfig<T>): PluginAddedLinkConfig {
+  const linkConfig: PluginAddedLinkConfig<T> = {
     ...config,
   };
   assertLinkConfig(linkConfig);
@@ -237,12 +228,8 @@ export function createExtensionLinkConfig<T extends object>(
 }
 
 function assertLinkConfig<T extends object>(
-  config: PluginExtensionLinkConfig<T>
-): asserts config is PluginExtensionLinkConfig {
-  if (config.type !== PluginExtensionTypes.link) {
-    throw Error('config is not a extension link');
-  }
-}
+  config: PluginAddedLinkConfig<T>
+): asserts config is PluginAddedLinkConfig {}
 
 export function truncateTitle(title: string, length: number): string {
   if (title.length < length) {

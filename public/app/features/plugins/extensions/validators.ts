@@ -1,12 +1,14 @@
 import type {
+  PluginAddedLinkConfig,
   PluginExtension,
   PluginExtensionConfig,
   PluginExtensionLink,
   PluginExtensionLinkConfig,
 } from '@grafana/data';
+import { PluginAddedLinksConfigureFunc } from '@grafana/data/src/types/pluginExtensions';
 import { isPluginExtensionLink } from '@grafana/runtime';
 
-import { isPluginExtensionComponentConfig, isPluginExtensionLinkConfig, logWarning } from './utils';
+import { isPluginExtensionLinkConfig } from './utils';
 
 export function assertPluginExtensionLink(
   extension: PluginExtension | undefined,
@@ -41,17 +43,17 @@ export function assertIsReactComponent(component: React.ComponentType) {
 }
 
 export function assertExtensionPointIdIsValid(pluginId: string, extension: PluginExtensionConfig) {
-  if (!isExtensionPointIdValid(pluginId, extension)) {
+  if (!isExtensionPointIdValid(pluginId, extension.extensionPointId)) {
     throw new Error(
       `Invalid extension "${extension.title}". The extensionPointId should start with either "grafana/", "plugins/" or "capabilities/${pluginId}" (currently: "${extension.extensionPointId}"). Skipping the extension.`
     );
   }
 }
 
-export function assertConfigureIsValid(extension: PluginExtensionLinkConfig) {
-  if (!isConfigureFnValid(extension)) {
+export function assertConfigureIsValid(config: PluginAddedLinkConfig) {
+  if (!isConfigureFnValid(config.configure)) {
     throw new Error(
-      `Invalid extension "${extension.title}". The "configure" property must be a function. Skipping the extension.`
+      `Invalid extension "${config.title}". The "configure" property must be a function. Skipping the extension.`
     );
   }
 }
@@ -76,55 +78,54 @@ export function isLinkPathValid(pluginId: string, path: string) {
   return Boolean(typeof path === 'string' && path.length > 0 && path.startsWith(`/a/${pluginId}/`));
 }
 
-export function isExtensionPointIdValid(pluginId: string, extension: PluginExtensionConfig) {
+export function isExtensionPointIdValid(pluginId: string, extensionPointId: string) {
   return Boolean(
-    extension.extensionPointId?.startsWith('grafana/') ||
-      extension.extensionPointId?.startsWith('plugins/') ||
-      extension.extensionPointId?.startsWith(`capabilities/${pluginId}/`)
+    extensionPointId.startsWith('grafana/') ||
+      extensionPointId?.startsWith('plugins/') ||
+      extensionPointId?.startsWith(pluginId)
   );
 }
 
-export function isConfigureFnValid(extension: PluginExtensionLinkConfig) {
-  return extension.configure ? typeof extension.configure === 'function' : true;
+export function extensionPointEndsWithVersion(extensionPointId: string) {
+  return extensionPointId.match(/.*\/v\d+$/);
+}
+
+export function isConfigureFnValid(configure?: PluginAddedLinksConfigureFunc<object> | undefined) {
+  return configure ? typeof configure === 'function' : true;
 }
 
 export function isStringPropValid(prop: unknown) {
   return typeof prop === 'string' && prop.length > 0;
 }
 
-export function isPluginExtensionConfigValid(pluginId: string, extension: PluginExtensionConfig): boolean {
-  try {
-    assertStringProps(extension, ['title', 'description', 'extensionPointId']);
-    assertExtensionPointIdIsValid(pluginId, extension);
+// export function isPluginExtensionConfigValid(pluginId: string, extension: PluginExtensionConfig): boolean {
+//   try {
+//     assertStringProps(extension, ['title', 'description', 'extensionPointId']);
+//     assertExtensionPointIdIsValid(pluginId, extension);
 
-    // Link
-    if (isPluginExtensionLinkConfig(extension)) {
-      assertConfigureIsValid(extension);
+//     // Link
+//     if (isPluginExtensionLinkConfig(extension)) {
+//       assertConfigureIsValid(extension);
 
-      if (!extension.path && !extension.onClick) {
-        logWarning(`Invalid extension "${extension.title}". Either "path" or "onClick" is required.`);
-        return false;
-      }
+//       if (!extension.path && !extension.onClick) {
+//         logWarning(`Invalid extension "${extension.title}". Either "path" or "onClick" is required.`);
+//         return false;
+//       }
 
-      if (extension.path) {
-        assertLinkPathIsValid(pluginId, extension.path);
-      }
-    }
+//       if (extension.path) {
+//         assertLinkPathIsValid(pluginId, extension.path);
+//       }
+//     }
 
-    // Component
-    if (isPluginExtensionComponentConfig(extension)) {
-      assertIsReactComponent(extension.component);
-    }
+//     return true;
+//   } catch (error) {
+//     if (error instanceof Error) {
+//       logWarning(error.message);
+//     }
 
-    return true;
-  } catch (error) {
-    if (error instanceof Error) {
-      logWarning(error.message);
-    }
-
-    return false;
-  }
-}
+//     return false;
+//   }
+// }
 
 export function isPromise(value: unknown): value is Promise<unknown> {
   return (
