@@ -1,5 +1,5 @@
-buf.build/gen/go/parca-dev/parca/bufbuild/connect-go v1.10.0-20240523185345-933eab74d046.1 h1:q6MBjQ5fj3ygW/ySxOck7iwLhPQWbzOKJRZYzXRBmBk=
-buf.build/gen/go/parca-dev/parca/bufbuild/connect-go v1.10.0-20240523185345-933eab74d046.1/go.mod h1:DEC5vsD4oLn7c6QeBVfUS7WpW5iwmW5lXfhpsjVxVt0=
+buf.build/gen/go/parca-dev/parca/bufbuild/connect-go v1.10.0-20240806091833-cb8c8ac2e7ff.1 h1:rBWEgFP8NFUsEokLjKDMZ1hpwPPp2VJNXwx7xWxhhSs=
+buf.build/gen/go/parca-dev/parca/bufbuild/connect-go v1.10.0-20240806091833-cb8c8ac2e7ff.1/go.mod h1:IYN69w2WFlHfteUCgh9yc7gxNrLQ6hpuEdJpNiTdUsc=
 buf.build/gen/go/parca-dev/parca/protocolbuffers/go v1.34.1-20240523185345-933eab74d046.1 h1:Osqg+/+sFJKr5iyna6/AvyxXPY0jqaIGr3ltzzSDLRk=
 buf.build/gen/go/parca-dev/parca/protocolbuffers/go v1.34.1-20240523185345-933eab74d046.1/go.mod h1:lbDqoSeErWK6pETEKo/LO+JmU2GbZqVE8ILESypLuZU=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
