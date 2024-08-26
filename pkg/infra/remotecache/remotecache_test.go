@@ -21,13 +21,13 @@ func TestMain(m *testing.M) {
 	testsuite.Run(m)
 }
 
-func createTestClient(t *testing.T, opts *setting.RemoteCacheOptions, sqlstore db.DB) CacheStorage {
+func createTestClient(t *testing.T, opts *setting.RemoteCacheSettings, sqlstore db.DB) CacheStorage {
 	t.Helper()
 
 	cfg := &setting.Cfg{
-		RemoteCacheOptions: opts,
+		RemoteCache: opts,
 	}
-	dc, err := ProvideService(cfg, sqlstore, &usagestats.UsageStatsMock{}, fakes.NewFakeSecretsService())
+	dc, err := ProvideService(cfg, sqlstore, &usagestats.UsageStatsMock{}, fakes.NewFakeSecretsService(), nil, nil)
 	require.Nil(t, err, "Failed to init client for test")
 
 	return dc
@@ -40,13 +40,8 @@ func TestCachedBasedOnConfig(t *testing.T) {
 	})
 	require.Nil(t, err, "Failed to load config")
 
-	client := createTestClient(t, cfg.RemoteCacheOptions, db)
+	client := createTestClient(t, cfg.RemoteCache, db)
 	runTestsForClient(t, client)
-}
-
-func TestInvalidCacheTypeReturnsError(t *testing.T) {
-	_, err := createClient(&setting.RemoteCacheOptions{Name: "invalid"}, nil, nil)
-	assert.Equal(t, err, ErrInvalidCacheType)
 }
 
 func runTestsForClient(t *testing.T, client CacheStorage) {
@@ -94,11 +89,9 @@ func TestCollectUsageStats(t *testing.T) {
 		"stats.remote_cache.encrypt_enabled.count": 1,
 	}
 	cfg := setting.NewCfg()
-	cfg.RemoteCacheOptions = &setting.RemoteCacheOptions{Name: redisCacheType, Encryption: true}
+	cfg.RemoteCache = &setting.RemoteCacheSettings{Name: redisCacheType, Encryption: true}
 
-	remoteCache := &RemoteCache{
-		Cfg: cfg,
-	}
+	remoteCache := &RemoteCache{cfg: cfg}
 
 	stats, err := remoteCache.getUsageStats(context.Background())
 	require.NoError(t, err)
