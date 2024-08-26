@@ -130,7 +130,8 @@ export class GrafanaApp {
       // Let iframe container know grafana has started loading
       parent.postMessage('GrafanaAppInit', '*');
 
-      const initI18nPromise = initializeI18n(config.bootData.user.language);
+      const pluginList = Object.values(config.apps);
+      const initI18nPromise = initializeI18n(config.bootData.user.language, pluginList);
       initI18nPromise.then(({ language }) => updateConfig({ language }));
 
       setBackendSrv(backendSrv);
@@ -223,8 +224,8 @@ export class GrafanaApp {
         // The "cloud-home-app" is registering banners once it's loaded, and this can cause a rerender in the AppChrome if it's loaded after the Grafana app init.
         // TODO: remove the following exception once the issue mentioned above is fixed.
         const awaitedAppPluginIds = ['cloud-home-app'];
-        const awaitedAppPlugins = Object.values(config.apps).filter((app) => awaitedAppPluginIds.includes(app.id));
-        const appPlugins = Object.values(config.apps).filter((app) => !awaitedAppPluginIds.includes(app.id));
+        const awaitedAppPlugins = pluginList.filter((app) => awaitedAppPluginIds.includes(app.id));
+        const appPlugins = pluginList.filter((app) => !awaitedAppPluginIds.includes(app.id));
 
         preloadPlugins(appPlugins, extensionsRegistry, exposedComponentsRegistry);
         await preloadPlugins(
