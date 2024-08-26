@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -120,6 +121,28 @@ func (r *queryREST) Connect(connectCtx context.Context, name string, _ runtime.O
 		}
 		// Parses the request and splits it into multiple sub queries (if necessary)
 		req, err := b.parser.parseRequest(ctx, raw)
+
+		// get headers from the original http req and add them to each sub request
+		// headers are case insensitive, however some datasources still check for camel casing so we have to send them camel cased
+		expectedHeaders := map[string]string{
+			"fromalert":      "FromAlert",
+			"content-type":   "Content-Type",
+			"content-length": "Content-Length",
+			"user-agent":     "User-Agent",
+			"accept":         "Accept",
+		}
+		for i := range req.Requests {
+			req.Requests[i].Headers = make(map[string]string)
+			for k, v := range httpreq.Header {
+				headerToSend, ok := expectedHeaders[strings.ToLower(k)]
+				if ok {
+					req.Requests[i].Headers[headerToSend] = v[0]
+				} else {
+					b.log.Warn(fmt.Sprintf("query service received an unexpected header, ignoring it: %s", k))
+				}
+			}
+		}
+
 		if err != nil {
 			if errors.Is(err, datasources.ErrDataSourceNotFound) {
 				// TODO, can we wrap the error somehow?
@@ -192,11 +215,15 @@ func (b *QueryAPIBuilder) handleQuerySingleDatasource(ctx context.Context, req d
 		return &backend.QueryDataResponse{}, nil
 	}
 
-	// Add user headers... here or in client.QueryData
-	client, err := b.client.GetDataSourceClient(ctx, v0alpha1.DataSourceRef{
-		Type: req.PluginId,
-		UID:  req.UID,
-	})
+	client, err := b.client.GetDataSourceClient(
+		ctx,
+		v0alpha1.DataSourceRef{
+			Type: req.PluginId,
+			UID:  req.UID,
+		},
+		req.Headers,
+	)
+
 	if err != nil {
 		return nil, err
 	}
