@@ -48,6 +48,7 @@ type PluginListItem struct {
 	SignatureOrg    string                  `json:"signatureOrg"`
 	AccessControl   accesscontrol.Metadata  `json:"accessControl,omitempty"`
 	AngularDetected bool                    `json:"angularDetected"`
+	LoadingStrategy plugins.LoadingStrategy `json:"loadingStrategy"`
 	IAM             *pfs.IAM                `json:"iam,omitempty"`
 }
 

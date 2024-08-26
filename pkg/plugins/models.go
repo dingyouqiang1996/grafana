@@ -254,6 +254,13 @@ type Error struct {
 	message         string          `json:"-"`
 }
 
+type LoadingStrategy string
+
+const (
+	LoadingStrategyFetch  LoadingStrategy = "fetch"
+	LoadingStrategyScript LoadingStrategy = "script"
+)
+
 func (e Error) Error() string {
 	if e.message != "" {
 		return e.message
