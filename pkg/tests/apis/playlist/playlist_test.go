@@ -92,11 +92,11 @@ func TestIntegrationPlaylist(t *testing.T) {
 			AppModeProduction:    true,
 			DisableAnonymous:     true,
 			APIServerStorageType: "file", // write the files to disk
-			EnableFeatureToggles: []string{
-				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
-			},
 			DualWriterDesiredModes: map[string]grafanarest.DualWriterMode{
 				playlistv0alpha1.GROUPRESOURCE: grafanarest.Mode0,
+			},
+			EnableFeatureToggles: []string{
+				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
 			},
 		}))
 	})
@@ -106,11 +106,11 @@ func TestIntegrationPlaylist(t *testing.T) {
 			AppModeProduction:    true,
 			DisableAnonymous:     true,
 			APIServerStorageType: "file", // write the files to disk
-			EnableFeatureToggles: []string{
-				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
-			},
 			DualWriterDesiredModes: map[string]grafanarest.DualWriterMode{
 				playlistv0alpha1.GROUPRESOURCE: grafanarest.Mode1,
+			},
+			EnableFeatureToggles: []string{
+				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
 			},
 		}))
 	})
@@ -120,11 +120,11 @@ func TestIntegrationPlaylist(t *testing.T) {
 			AppModeProduction:    true,
 			DisableAnonymous:     true,
 			APIServerStorageType: "file", // write the files to disk
-			EnableFeatureToggles: []string{
-				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
-			},
 			DualWriterDesiredModes: map[string]grafanarest.DualWriterMode{
 				playlistv0alpha1.GROUPRESOURCE: grafanarest.Mode2,
+			},
+			EnableFeatureToggles: []string{
+				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
 			},
 		}))
 	})
@@ -134,11 +134,11 @@ func TestIntegrationPlaylist(t *testing.T) {
 			AppModeProduction:    true,
 			DisableAnonymous:     true,
 			APIServerStorageType: "file", // write the files to disk
-			EnableFeatureToggles: []string{
-				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
-			},
 			DualWriterDesiredModes: map[string]grafanarest.DualWriterMode{
 				playlistv0alpha1.GROUPRESOURCE: grafanarest.Mode3,
+			},
+			EnableFeatureToggles: []string{
+				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
 			},
 		}))
 	})
@@ -162,12 +162,7 @@ func TestIntegrationPlaylist(t *testing.T) {
 			AppModeProduction:    false, // required for  unified storage
 			DisableAnonymous:     true,
 			APIServerStorageType: "unified", // use the entity api tables
-			EnableFeatureToggles: []string{
-				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
-			},
-			DualWriterDesiredModes: map[string]grafanarest.DualWriterMode{
-				playlistv0alpha1.GROUPRESOURCE: grafanarest.Mode1,
-			},
+			EnableFeatureToggles: []string{},
 		}))
 	})
 
@@ -207,11 +202,11 @@ func TestIntegrationPlaylist(t *testing.T) {
 			AppModeProduction:    true,
 			DisableAnonymous:     true,
 			APIServerStorageType: "etcd", // requires etcd running on localhost:2379
-			EnableFeatureToggles: []string{
-				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
-			},
 			DualWriterDesiredModes: map[string]grafanarest.DualWriterMode{
 				playlistv0alpha1.GROUPRESOURCE: grafanarest.Mode0,
+			},
+			EnableFeatureToggles: []string{
+				featuremgmt.FlagKubernetesPlaylists, // Required so that legacy calls are also written
 			},
 		})
 
