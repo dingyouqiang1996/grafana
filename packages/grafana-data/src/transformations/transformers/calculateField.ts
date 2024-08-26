@@ -61,6 +61,7 @@ export interface BinaryOptions {
   left: string;
   operator: BinaryOperationID;
   right: string;
+  allNumbers?: boolean;
 }
 
 interface IndexOptions {
@@ -82,6 +83,7 @@ const defaultBinaryOptions: BinaryOptions = {
   left: '',
   operator: BinaryOperationID.Add,
   right: '',
+  allNumbers: false,
 };
 
 const defaultUnaryOptions: UnaryOptions = {
@@ -157,8 +159,40 @@ export const calculateFieldTransformer: DataTransformerInfo<CalculateFieldTransf
               left: ctx.interpolate(options.binary?.left!),
               right: ctx.interpolate(options.binary?.right!),
             };
+            if (binaryOptions.allNumbers) {
+              const operator = binaryOperators.getIfExists(binaryOptions.operator);
+              return data.map((frame) => {
+                const { timeField } = getTimeField(frame);
+                const newFields: Field[] = [];
+                if (timeField && options.timeSeries !== false) {
+                  newFields.push(timeField);
+                }
+                // For each field of type number, apply operator
+                frame.fields.map((field, index) => {
+                  if (!options.replaceFields) {
+                    newFields.push(field);
+                  }
+                  if (field.type === FieldType.number) {
+                    const left = field.values;
+                    // TODO consolidate common creator logic
+                    const right = findFieldValuesWithNameOrConstant(frame, binaryOptions.right, data);
+                    if (!left || !right || !operator) {
+                      return undefined;
+                    }
 
-            creator = getBinaryCreator(defaults(binaryOptions, defaultBinaryOptions), data);
+                    const arr = new Array(left.length);
+                    for (let i = 0; i < arr.length; i++) {
+                      arr[i] = operator.operation(left[i], right[i]);
+                    }
+                    const newField = { ...field, name: `${field.name}${getNameFromOptions(options)}`, values: arr };
+                    newFields.push(newField);
+                  }
+                });
+                return { ...frame, fields: newFields };
+              });
+            } else {
+              creator = getBinaryCreator(defaults(binaryOptions, defaultBinaryOptions), data);
+            }
             break;
           case CalculateFieldMode.Index:
             return data.map((frame) => {
