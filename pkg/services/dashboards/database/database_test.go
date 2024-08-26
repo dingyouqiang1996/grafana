@@ -7,9 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/components/simplejson"
 	"github.com/grafana/grafana/pkg/expr"
@@ -33,6 +30,8 @@ import (
 	"github.com/grafana/grafana/pkg/setting"
 	"github.com/grafana/grafana/pkg/tests/testsuite"
 	"github.com/grafana/grafana/pkg/util"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // run tests with cleanup
@@ -786,12 +785,12 @@ func TestGetExistingDashboardByTitleAndFolder(t *testing.T) {
 	dashboardStore, err := ProvideDashboardStore(sqlStore, cfg, testFeatureToggles, tagimpl.ProvideService(sqlStore), quotaService)
 	require.NoError(t, err)
 	insertTestDashboard(t, dashboardStore, "Apple", 1, 0, "", false)
-	t.Run("Finds a dashboard with existing name in root directory and throws DashboardWithSameNameInFolderExists error", func(t *testing.T) {
+	t.Run("Finds a dashboard with existing name in root directory", func(t *testing.T) {
 		err = sqlStore.WithDbSession(context.Background(), func(sess *sqlstore.DBSession) error {
 			_, err = getExistingDashboardByTitleAndFolder(sess, &dashboards.Dashboard{Title: "Apple", OrgID: 1}, false, false)
 			return err
 		})
-		require.ErrorIs(t, err, dashboards.ErrDashboardWithSameNameInFolderExists)
+		require.NoError(t, err)
 	})
 
 	t.Run("Returns no error when dashboard does not exist in root folder", func(t *testing.T) {
@@ -809,7 +808,7 @@ func TestGetExistingDashboardByTitleAndFolder(t *testing.T) {
 			_, err = getExistingDashboardByTitleAndFolder(sess, &dashboards.Dashboard{Title: savedDash.Title, FolderUID: savedFolder.UID, OrgID: 1}, false, false)
 			return err
 		})
-		require.ErrorIs(t, err, dashboards.ErrDashboardWithSameNameInFolderExists)
+		require.NoError(t, err)
 	})
 }
 

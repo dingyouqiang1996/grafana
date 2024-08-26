@@ -340,11 +340,11 @@ func getExistingDashboardByTitleAndFolder(sess *db.Session, dash *dashboards.Das
 	}
 	if exists && dash.ID != existing.ID {
 		if existing.IsFolder && !dash.IsFolder {
-			return isParentFolderChanged, dashboards.ErrDashboardWithSameNameAsFolder
+			return isParentFolderChanged, nil
 		}
 
 		if !existing.IsFolder && dash.IsFolder {
-			return isParentFolderChanged, dashboards.ErrDashboardFolderWithSameNameAsDashboard
+			return isParentFolderChanged, nil
 		}
 
 		metrics.MFolderIDsServiceCount.WithLabelValues(metrics.Dashboard).Inc()
@@ -357,8 +357,6 @@ func getExistingDashboardByTitleAndFolder(sess *db.Session, dash *dashboards.Das
 			dash.SetID(existing.ID)
 			dash.SetUID(existing.UID)
 			dash.SetVersion(existing.Version)
-		} else {
-			return isParentFolderChanged, dashboards.ErrDashboardWithSameNameInFolderExists
 		}
 	}
 

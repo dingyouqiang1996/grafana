@@ -567,7 +567,7 @@ func TestIntegrationIntegratedDashboardService(t *testing.T) {
 						}
 
 						err := callSaveWithError(t, cmd, sc.sqlStore)
-						assert.Equal(t, dashboards.ErrDashboardWithSameNameInFolderExists, err)
+						require.NoError(t, err)
 					})
 
 				permissionScenario(t, "When creating a dashboard with same name as dashboard in General folder",
@@ -583,7 +583,7 @@ func TestIntegrationIntegratedDashboardService(t *testing.T) {
 						}
 
 						err := callSaveWithError(t, cmd, sc.sqlStore)
-						assert.Equal(t, dashboards.ErrDashboardWithSameNameInFolderExists, err)
+						require.NoError(t, err)
 					})
 
 				permissionScenario(t, "When creating a folder with same name as existing folder", canSave,
@@ -599,7 +599,7 @@ func TestIntegrationIntegratedDashboardService(t *testing.T) {
 						}
 
 						err := callSaveWithError(t, cmd, sc.sqlStore)
-						assert.Equal(t, dashboards.ErrDashboardWithSameNameInFolderExists, err)
+						require.NoError(t, err)
 					})
 			})
 
@@ -814,7 +814,7 @@ func TestIntegrationIntegratedDashboardService(t *testing.T) {
 						}
 
 						err := callSaveWithError(t, cmd, sc.sqlStore)
-						assert.Equal(t, dashboards.ErrDashboardWithSameNameAsFolder, err)
+						require.NoError(t, err)
 					})
 
 				permissionScenario(t, "When updating existing dashboard to a folder using title", canSave,
@@ -829,7 +829,7 @@ func TestIntegrationIntegratedDashboardService(t *testing.T) {
 						}
 
 						err := callSaveWithError(t, cmd, sc.sqlStore)
-						assert.Equal(t, dashboards.ErrDashboardFolderWithSameNameAsDashboard, err)
+						require.NoError(t, err)
 					})
 			})
 		})

@@ -8,10 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/grafana/grafana/pkg/api/dtos"
 	"github.com/grafana/grafana/pkg/services/accesscontrol"
 	"github.com/grafana/grafana/pkg/services/accesscontrol/actest"
@@ -26,6 +22,9 @@ import (
 	"github.com/grafana/grafana/pkg/services/user"
 	"github.com/grafana/grafana/pkg/setting"
 	"github.com/grafana/grafana/pkg/web/webtest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFoldersCreateAPIEndpoint(t *testing.T) {
@@ -83,13 +82,6 @@ func TestFoldersCreateAPIEndpoint(t *testing.T) {
 			input:                  folderWithoutParentInput,
 			expectedCode:           http.StatusBadRequest,
 			expectedFolderSvcError: dashboards.ErrDashboardUidTooLong,
-			permissions:            []accesscontrol.Permission{{Action: dashboards.ActionFoldersCreate}},
-		},
-		{
-			description:            "folder creation fails given folder service error %s",
-			input:                  folderWithoutParentInput,
-			expectedCode:           http.StatusConflict,
-			expectedFolderSvcError: dashboards.ErrFolderSameNameExists,
 			permissions:            []accesscontrol.Permission{{Action: dashboards.ActionFoldersCreate}},
 		},
 		{
@@ -198,12 +190,6 @@ func TestFoldersUpdateAPIEndpoint(t *testing.T) {
 			description:            "folder updating fails given folder service error %s",
 			expectedCode:           http.StatusBadRequest,
 			expectedFolderSvcError: dashboards.ErrDashboardUidTooLong,
-			permissions:            []accesscontrol.Permission{{Action: dashboards.ActionFoldersWrite, Scope: dashboards.ScopeFoldersAll}},
-		},
-		{
-			description:            "folder updating fails given folder service error %s",
-			expectedCode:           http.StatusConflict,
-			expectedFolderSvcError: dashboards.ErrFolderSameNameExists,
 			permissions:            []accesscontrol.Permission{{Action: dashboards.ActionFoldersWrite, Scope: dashboards.ScopeFoldersAll}},
 		},
 		{
