@@ -2,7 +2,7 @@ import { css, cx } from '@emotion/css';
 import { addMinutes, subDays, subHours } from 'date-fns';
 import { Location } from 'history';
 import { useRef, useState } from 'react';
-import { FormProvider, useForm, Validate } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { useToggle } from 'react-use';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
@@ -24,18 +24,21 @@ import {
 import { useAppNotification } from 'app/core/copy/appNotification';
 import { useCleanup } from 'app/core/hooks/useCleanup';
 import { ActiveTab as ContactPointsActiveTabs } from 'app/features/alerting/unified/components/contact-points/ContactPoints';
-import { AlertManagerCortexConfig, TestTemplateAlert } from 'app/plugins/datasource/alertmanager/types';
+import { TestTemplateAlert } from 'app/plugins/datasource/alertmanager/types';
 
 import { AppChromeUpdate } from '../../../../../core/components/AppChrome/AppChromeUpdate';
 import { useUnifiedAlertingSelector } from '../../hooks/useUnifiedAlertingSelector';
 import { GRAFANA_RULES_SOURCE_NAME } from '../../utils/datasource';
+import { PROVENANCE_NONE } from '../../utils/k8s/constants';
 import { makeAMLink, stringifyErrorLike } from '../../utils/misc';
 import { initialAsyncRequestState } from '../../utils/redux';
 import { ProvisionedResource, ProvisioningAlert } from '../Provisioning';
 import { EditorColumnHeader } from '../contact-points/templates/EditorColumnHeader';
 import {
+  NotificationTemplate,
   useCreateNotificationTemplate,
   useUpdateNotificationTemplate,
+  useValidateNotificationTemplate,
 } from '../contact-points/useNotificationTemplates';
 
 import { PayloadEditor } from './PayloadEditor';
@@ -55,11 +58,11 @@ export const defaults: TemplateFormValues = Object.freeze({
 });
 
 interface Props {
-  existing?: TemplateFormValues;
-  config: AlertManagerCortexConfig;
+  originalTemplate?: NotificationTemplate;
+  prefill?: TemplateFormValues;
   alertManagerSourceName: string;
-  provenance?: string;
 }
+
 export const isDuplicating = (location: Location) => location.pathname.endsWith('/duplicate');
 
 /**
@@ -82,13 +85,14 @@ export const isDuplicating = (location: Location) => location.pathname.endsWith(
  * │                   ││           │
  * └───────────────────┘└───────────┘
  */
-export const TemplateForm = ({ existing, alertManagerSourceName, config, provenance }: Props) => {
+export const TemplateForm = ({ originalTemplate, prefill, alertManagerSourceName }: Props) => {
   const styles = useStyles2(getStyles);
 
   const appNotification = useAppNotification();
 
   const createNewTemplate = useCreateNotificationTemplate({ alertmanager: alertManagerSourceName });
   const updateTemplate = useUpdateNotificationTemplate({ alertmanager: alertManagerSourceName });
+  const { nameIsUnique } = useValidateNotificationTemplate({ alertmanager: alertManagerSourceName });
 
   useCleanup((state) => (state.unifiedAlerting.saveAMConfig = initialAsyncRequestState));
   const formRef = useRef<HTMLFormElement>(null);
@@ -100,6 +104,11 @@ export const TemplateForm = ({ existing, alertManagerSourceName, config, provena
 
   const [payload, setPayload] = useState(defaultPayloadString);
   const [payloadFormatError, setPayloadFormatError] = useState<string | null>(null);
+
+  const isProvisioned = Boolean(originalTemplate?.provenance) && originalTemplate?.provenance !== PROVENANCE_NONE;
+  const originalTemplatePrefill = originalTemplate
+    ? { name: originalTemplate.name, content: originalTemplate.template }
+    : undefined;
 
   // splitter for template and payload editor
   const columnSplitter = useSplitter({
@@ -119,7 +128,7 @@ export const TemplateForm = ({ existing, alertManagerSourceName, config, provena
 
   const formApi = useForm<TemplateFormValues>({
     mode: 'onSubmit',
-    defaultValues: existing ?? defaults,
+    defaultValues: prefill ?? originalTemplatePrefill ?? defaults,
   });
   const {
     handleSubmit,
@@ -136,21 +145,15 @@ export const TemplateForm = ({ existing, alertManagerSourceName, config, provena
     });
 
     try {
-      if (!existing) {
-        await createNewTemplate({ template: values });
+      if (!originalTemplate) {
+        await createNewTemplate({ templateValues: values });
       } else {
-        await updateTemplate({ originalName: existing.name, template: values });
+        await updateTemplate({ template: originalTemplate, patch: values });
       }
       locationService.push(returnLink);
     } catch (error) {
       appNotification.error('Error saving template', stringifyErrorLike(error));
     }
-  };
-
-  const validateNameIsUnique: Validate<string, TemplateFormValues> = (name: string) => {
-    return !config.template_files[name] || existing?.name === name
-      ? true
-      : 'Another template with this name already exists.';
   };
 
   const actionButtons = (
@@ -175,7 +178,7 @@ export const TemplateForm = ({ existing, alertManagerSourceName, config, provena
     <>
       <FormProvider {...formApi}>
         <AppChromeUpdate actions={actionButtons} />
-        <form onSubmit={handleSubmit(submit)} ref={formRef} className={styles.form}>
+        <form onSubmit={handleSubmit(submit)} ref={formRef} className={styles.form} aria-label="Template form">
           {/* error message */}
           {error && (
             <Alert severity="error" title="Error saving template">
@@ -183,14 +186,14 @@ export const TemplateForm = ({ existing, alertManagerSourceName, config, provena
             </Alert>
           )}
           {/* warning about provisioned template */}
-          {provenance && (
+          {isProvisioned && (
             <Box grow={0}>
               <ProvisioningAlert resource={ProvisionedResource.Template} />
             </Box>
           )}
 
           {/* name field for the template */}
-          <FieldSet disabled={Boolean(provenance)} className={styles.fieldset}>
+          <FieldSet disabled={isProvisioned} className={styles.fieldset}>
             <InlineField
               label="Template name"
               error={errors?.name?.message}
@@ -201,7 +204,7 @@ export const TemplateForm = ({ existing, alertManagerSourceName, config, provena
               <Input
                 {...register('name', {
                   required: { value: true, message: 'Required.' },
-                  validate: { nameIsUnique: validateNameIsUnique },
+                  validate: { nameIsUnique },
                 })}
                 placeholder="Give your template a name"
                 width={42}
