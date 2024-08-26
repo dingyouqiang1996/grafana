@@ -1,4 +1,5 @@
 import {
+  closestIdx,
   DataFrame,
   DataFrameType,
   DataQueryResponse,
@@ -15,7 +16,7 @@ export function combinePanelData(currentData: PanelData, newData: PanelData): Pa
   return { ...currentData, series };
 }
 
-export function combineResponses(currentResult: DataQueryResponse | null, newResult: DataQueryResponse) {
+export function combineResponses(currentResult: DataQueryResponse | null, newResult: DataQueryResponse, combineFunction = combineAdjacentFrames) {
   if (!currentResult) {
     return cloneQueryResponse(newResult);
   }
@@ -26,7 +27,7 @@ export function combineResponses(currentResult: DataQueryResponse | null, newRes
       currentResult.data.push(cloneDataFrame(newFrame));
       return;
     }
-    combineFrames(currentFrame, newFrame);
+    combineFunction(currentFrame, newFrame);
   });
 
   const mergedErrors = [...(currentResult.errors ?? []), ...(newResult.errors ?? [])];
@@ -56,7 +57,10 @@ export function combineResponses(currentResult: DataQueryResponse | null, newRes
   return currentResult;
 }
 
-function combineFrames(dest: DataFrame, source: DataFrame) {
+/**
+ * Given two data frames, combine their values assuming source contains older data, with no overlaps.
+ */
+function combineAdjacentFrames(dest: DataFrame, source: DataFrame) {
   // `dest` and `source` might have more or less fields, we need to go through all of them
   const totalFields = Math.max(dest.fields.length, source.fields.length);
   for (let i = 0; i < totalFields; i++) {
@@ -81,6 +85,57 @@ function combineFrames(dest: DataFrame, source: DataFrame) {
     ...dest.meta,
     stats: getCombinedMetadataStats(dest.meta?.stats ?? [], source.meta?.stats ?? []),
   };
+}
+
+/**
+ * Given two data frames, merge their values. Overlapping values will be added together.
+ */
+export function mergeFrames(dest: DataFrame, source: DataFrame) {
+  const destTimeField = dest.fields.find((field) => field.type === FieldType.time);
+  const sourceTimeValues = source.fields.find((field) => field.type === FieldType.time)?.values.slice(0) ?? [];
+  const totalFields = Math.max(dest.fields.length, source.fields.length);
+
+  for (let i = 0; i < sourceTimeValues.length; i++) {
+    const destTimeValues = destTimeField?.values.slice(0) ?? [];
+    const destIdx = resolveIdx(sourceTimeValues[i], destTimeValues);
+
+    for (let f = 0; f < totalFields; f++) {
+      // For now, skip undefined fields that exist in the new frame
+      if (!dest.fields[f]) {
+        continue;
+      }
+      // Index is not reliable when frames have disordered fields, or an extra/missing field, so we find them by name.
+      // If the field has no name, we fallback to the old index version.
+      const sourceField = findSourceField(dest.fields[f], source.fields, f);
+      if (!sourceField) {
+        continue;
+      }
+      // Same value, accumulate
+      if (sourceTimeValues[i] === destTimeValues[destIdx]) {
+        // Time already exists
+        if (dest.fields[f].type === FieldType.time) {
+          continue;
+        }
+        dest.fields[f].values[destIdx] = (dest.fields[f].values[destIdx] ?? 0) + sourceField.values[i];  
+      } else {
+        dest.fields[f].values.splice(destIdx, 0, sourceField.values[i]);
+      } 
+    }
+  }
+  
+  dest.length += source.length;
+  dest.meta = {
+    ...dest.meta,
+    stats: getCombinedMetadataStats(dest.meta?.stats ?? [], source.meta?.stats ?? []),
+  };
+}
+
+function resolveIdx(timestamp: number, series: number[]) {
+  const idx = closestIdx(timestamp, series);
+  if (timestamp > series[idx]) {
+    return idx+1;
+  }
+  return idx;
 }
 
 function findSourceField(referenceField: Field, sourceFields: Field[], index: number) {

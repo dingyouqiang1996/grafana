@@ -25,9 +25,9 @@ import {
 } from '@grafana/lezer-logql';
 import { DataQuery } from '@grafana/schema';
 
-import { getStreamSelectorPositions, NodePosition } from './modifyQuery';
+import { addLabelToQuery, getStreamSelectorPositions, NodePosition, removeLabelFromQuery } from './modifyQuery';
 import { ErrorId } from './querybuilder/parsingUtils';
-import { LokiQuery, LokiQueryType } from './types';
+import { LabelType, LokiQuery, LokiQueryType } from './types';
 
 /**
  * Returns search terms from a LogQL query.
@@ -328,3 +328,23 @@ export const getLokiQueryFromDataQuery = (query?: DataQuery): LokiQuery | undefi
 
   return query;
 };
+
+const SHARDING_PLACEHOLDER = '__stream_shard_number__';
+export const addShardingPlaceholderSelector = (query: string) => {
+  return addLabelToQuery(query, '__stream_shard__', '=', SHARDING_PLACEHOLDER, LabelType.Indexed);
+}
+
+export const interpolateShardingSelector = (queries: LokiQuery[], shard?: number) => {
+  if (shard === undefined) {
+    return queries.map(query => ({
+      ...query,
+      expr: removeLabelFromQuery(query.expr, '__stream_shard__', '=', SHARDING_PLACEHOLDER),
+    }))
+  }
+
+  const shardValue = shard < 0 ? '' : shard.toString();
+  return queries.map(query => ({
+    ...query,
+    expr: query.expr.replace(new RegExp(`${SHARDING_PLACEHOLDER}`, 'g'), shardValue),
+  }))
+}
