@@ -46,7 +46,7 @@ func TestService_Calculate(t *testing.T) {
 			expected: plugins.LoadingStrategyScript,
 		},
 		{
-			name:           "Expected LoadingStrategyScript when create-plugin version is not provided, plugin is not angular and is not configured as CDN enabled",
+			name: "Expected LoadingStrategyScript when create-plugin version is not provided, plugin is not angular and is not configured as CDN enabled",
 			pluginSettings: newPluginSettings(pluginID, map[string]string{
 				// NOTE: cdn key is not set
 			}),
@@ -106,7 +106,7 @@ func TestService_Calculate(t *testing.T) {
 			expected: plugins.LoadingStrategyFetch,
 		},
 		{
-			name: "Expected LoadingStrategyScript when plugin setting cdn_script_loading is badly formatted, plugin is not configured as CDN enabled and does not have the CDN class",
+			name: "Expected LoadingStrategyScript when plugin setting create-plugin version is badly formatted, plugin is not configured as CDN enabled and does not have the CDN class",
 			pluginSettings: newPluginSettings(pluginID, map[string]string{
 				createPluginVersionCfgKey: "invalidSemver",
 			}),
